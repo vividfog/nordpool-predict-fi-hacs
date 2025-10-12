@@ -114,7 +114,7 @@ series:
     curve: stepline
     stroke_width: 0
     float_precision: 1
-    color: skyblue
+    color: dodgerblue
     opacity: 0.16
     data_generator: |
       const data = entity.attributes.windpower_forecast || [];
@@ -144,8 +144,6 @@ apex_config:
   chart:
     toolbar:
       show: false
-  theme:
-    mode: light
   grid:
     strokeDashArray: 3
     xaxis:
