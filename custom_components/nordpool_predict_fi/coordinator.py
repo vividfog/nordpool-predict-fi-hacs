@@ -2,9 +2,11 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import csv
 from dataclasses import dataclass
 from datetime import datetime, time, timedelta, timezone, tzinfo
 from typing import Any
+from urllib.parse import urlencode
 
 from aiohttp import ClientError, ClientResponseError, ContentTypeError
 import async_timeout
@@ -18,6 +20,7 @@ from .const import (
     CONF_INCLUDE_WINDPOWER,
     CONF_UPDATE_INTERVAL,
     DEFAULT_BASE_URL,
+    SAHKOTIN_BASE_URL,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -42,6 +45,9 @@ HELSINKI_MARKET_RELEASE = time(14, 0)
 PREDICTION_START_HOUR = time(1, 0)
 HELSINKI_TIMEZONE_NAME = "Europe/Helsinki"
 
+
+MAX_SUMMARY_LENGTH = 255
+SUMMARY_ELLIPSIS = "..."
 
 class NordpoolPredictCoordinator(DataUpdateCoordinator[dict[str, Any]]):
     """Coordinator that fetches Nordpool FI prediction artifacts."""
@@ -108,14 +114,38 @@ class NordpoolPredictCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             for hours in CHEAPEST_WINDOW_HOURS
         }
 
+        sahkotin_start_helsinki = helsinki_now.replace(hour=0, minute=0, second=0, microsecond=0)
+        sahkotin_start = sahkotin_start_helsinki.astimezone(timezone.utc)
+        forecast_horizon = forecast_series[-1].datetime if forecast_series else now + timedelta(days=2)
+        sahkotin_end = max(now, forecast_horizon)
+
+        sahkotin_task = asyncio.create_task(
+            self._safe_fetch_sahkotin_series(session, sahkotin_start, sahkotin_end)
+        )
+        narration_fi_task = asyncio.create_task(
+            self._safe_fetch_optional_text(session, "narration.md")
+        )
+        narration_en_task = asyncio.create_task(
+            self._safe_fetch_optional_text(session, "narration_en.md")
+        )
+
+        realized_series = await sahkotin_task
+        narration_fi, narration_en = await asyncio.gather(narration_fi_task, narration_en_task)
+
+        merged_price_series = self._merge_price_series(realized_series, forecast_series)
+
         data: dict[str, Any] = {
             "price": {
-                "forecast": prediction_points,
+                "forecast": merged_price_series,
                 "current": current_point,
                 "cheapest_windows": cheapest_windows,
                 "now": now,
             },
             "windpower": None,
+            "narration": {
+                "fi": self._build_narration_section("narration.md", narration_fi),
+                "en": self._build_narration_section("narration_en.md", narration_en),
+            },
             "meta": {
                 "base_url": self._base_url,
                 CONF_INCLUDE_WINDPOWER: self._include_windpower,
@@ -152,6 +182,40 @@ class NordpoolPredictCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             _LOGGER.warning("Timeout reaching optional artifact %s", suffix)
         return None
 
+    async def _safe_fetch_optional_text(self, session, suffix: str) -> str | None:
+        try:
+            return await self._fetch_text(session, suffix)
+        except FileNotFoundError:
+            _LOGGER.debug("Optional artifact %s not present at %s", suffix, self._compose_url(suffix))
+            return None
+        except UpdateFailed as err:
+            _LOGGER.warning("Could not refresh optional artifact %s: %s", suffix, err)
+        except ClientError as err:
+            _LOGGER.warning("Network error fetching optional artifact %s: %s", suffix, err)
+        except asyncio.TimeoutError:
+            _LOGGER.warning("Timeout reaching optional artifact %s", suffix)
+        return None
+
+    async def _safe_fetch_sahkotin_series(
+        self,
+        session,
+        start: datetime,
+        end: datetime,
+    ) -> list[SeriesPoint]:
+        try:
+            csv_text = await self._fetch_sahkotin_csv(session, start, end)
+        except UpdateFailed as err:
+            _LOGGER.warning("Could not refresh Sähkötin prices: %s", err)
+            return []
+        except ClientError as err:
+            _LOGGER.warning("Network error fetching Sähkötin prices: %s", err)
+            return []
+        except asyncio.TimeoutError:
+            _LOGGER.warning("Timeout reaching Sähkötin prices")
+            return []
+
+        return self._parse_sahkotin_csv(csv_text, start)
+
     async def _fetch_json(self, session, suffix: str) -> list[Any]:
         url = self._compose_url(suffix)
         try:
@@ -171,6 +235,51 @@ class NordpoolPredictCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             raise UpdateFailed(f"Timeout fetching {url}") from err
         except ContentTypeError as err:
             raise UpdateFailed(f"Non-JSON response from {url}") from err
+        except ClientError as err:
+            raise UpdateFailed(f"Network error fetching {url}") from err
+
+    async def _fetch_text(self, session, suffix: str) -> str:
+        url = self._compose_url(suffix)
+        try:
+            async with async_timeout.timeout(20):
+                async with session.get(url) as response:
+                    try:
+                        response.raise_for_status()
+                    except ClientResponseError as err:
+                        if err.status == 404:
+                            raise FileNotFoundError(url) from err
+                        raise
+                    return await response.text()
+        except asyncio.TimeoutError as err:
+            raise UpdateFailed(f"Timeout fetching {url}") from err
+        except ClientError as err:
+            raise UpdateFailed(f"Network error fetching {url}") from err
+
+    async def _fetch_sahkotin_csv(
+        self,
+        session,
+        start: datetime,
+        end: datetime,
+    ) -> str:
+        params = {
+            "fix": "true",
+            "vat": "true",
+            "start": start.replace(microsecond=0).isoformat(),
+            "end": end.replace(microsecond=0).isoformat(),
+        }
+        url = f"{SAHKOTIN_BASE_URL}?{urlencode(params)}"
+        try:
+            async with async_timeout.timeout(20):
+                async with session.get(url) as response:
+                    try:
+                        response.raise_for_status()
+                    except ClientResponseError as err:
+                        if err.status == 404:
+                            raise UpdateFailed(f"Sähkötin returned 404 for {url}") from err
+                        raise UpdateFailed(f"Sähkötin request failed: {err}") from err
+                    return await response.text()
+        except asyncio.TimeoutError as err:
+            raise UpdateFailed(f"Timeout fetching {url}") from err
         except ClientError as err:
             raise UpdateFailed(f"Network error fetching {url}") from err
 
@@ -260,3 +369,82 @@ class NordpoolPredictCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 return False
             previous = current.datetime
         return True
+
+    def _build_narration_section(self, suffix: str, content: str | None) -> dict[str, str] | None:
+        if content is None:
+            return None
+        normalized = content.strip()
+        if not normalized:
+            return None
+        summary = self._build_summary(normalized)
+        return {
+            "content": normalized,
+            "summary": summary,
+            "source": self._compose_url(suffix),
+        }
+
+    @staticmethod
+    def _build_summary(content: str) -> str:
+        for line in content.splitlines():
+            candidate = line.strip()
+            if not candidate:
+                continue
+            if candidate.startswith("|"):
+                continue
+            cleaned = candidate.strip("* _")
+            compact = " ".join(cleaned.split())
+            if len(compact) <= MAX_SUMMARY_LENGTH:
+                return compact
+            max_content_length = MAX_SUMMARY_LENGTH - len(SUMMARY_ELLIPSIS)
+            return f"{compact[:max_content_length].rstrip()}{SUMMARY_ELLIPSIS}"
+        return ""
+
+    def _parse_sahkotin_csv(self, csv_text: str, earliest: datetime | None) -> list[SeriesPoint]:
+        if not csv_text:
+            return []
+        series: list[SeriesPoint] = []
+        reader = csv.reader(line for line in csv_text.splitlines() if line)
+        header_skipped = False
+        for row in reader:
+            if not header_skipped:
+                header_skipped = True
+                continue
+            if len(row) < 2:
+                continue
+            timestamp_raw = row[0].strip()
+            price_raw = row[1].strip()
+            if not timestamp_raw or not price_raw:
+                continue
+            timestamp_clean = timestamp_raw.replace("Z", "+00:00").replace(" ", "T")
+            try:
+                timestamp = datetime.fromisoformat(timestamp_clean)
+            except ValueError:
+                continue
+            # If the parsed timestamp is naive (no tzinfo), treat it as UTC.
+            # This is because Sähkötin CSV timestamps are expected to be in UTC if no timezone is specified.
+            if timestamp.tzinfo is None:
+                timestamp = timestamp.replace(tzinfo=timezone.utc)
+            value = self._safe_float(price_raw)
+            if value is None:
+                continue
+            timestamp_utc = timestamp.astimezone(timezone.utc)
+            if earliest and timestamp_utc < earliest:
+                continue
+            series.append(SeriesPoint(datetime=timestamp_utc, value=value))
+        series.sort(key=lambda item: item.datetime)
+        return series
+
+    def _merge_price_series(
+        self,
+        realized_series: list[SeriesPoint],
+        forecast_series: list[SeriesPoint],
+    ) -> list[SeriesPoint]:
+        if not realized_series:
+            return list(forecast_series)
+        merged = list(realized_series)
+        last_realized = merged[-1].datetime
+        for point in forecast_series:
+            if point.datetime <= last_realized:
+                continue
+            merged.append(point)
+        return merged

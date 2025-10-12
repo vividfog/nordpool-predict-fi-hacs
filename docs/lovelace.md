@@ -1,6 +1,6 @@
 # Lovelace examples
 
-The integration exposes sensors that let you overlay upstream predictions on top of official Nordpool data. Below is a minimal example using the [ApexCharts card](https://github.com/RomRider/apexcharts-card) recommended in the upstream project.
+The integration exposes a single continuous price sensor that already merges Sähkötin realizations with Nordpool Predict forecasts (thanks, [Sähkötin](https://sahkotin.fi/hours)!). Below is a minimal example using the [ApexCharts card](https://github.com/RomRider/apexcharts-card) recommended in the upstream project.
 
 ![Screenshot of forecast vs. market price chart in ApexCharts](npf_card_price.png)
 
@@ -13,15 +13,11 @@ graph_span: 7d
 span:
   start: day
 series:
-  - entity: sensor.nordpool_predict_fi_price
-    name: Predicted price
+  - entity: sensor.nordpool_predict_fi_upcoming_price
+    name: Price (realized + forecast)
     float_precision: 2
     data_generator: |
       return entity.attributes.forecast.map(item => [item.timestamp, item.value]);
-  - entity: sensor.nordpool_kwh_fi_eur_2_10_0  # replace with your Nordpool market sensor
-    name: Market price
-    float_precision: 2
-    type: line
 yaxis:
   - decimals: 2
     min: 0
@@ -35,7 +31,7 @@ If you enable the optional wind power dataset, you can chart it on a secondary a
 ![Screenshot of combined price and wind power chart in ApexCharts](npf_card_wind.png)
 
 ```yaml
-- entity: sensor.nordpool_predict_fi_windpower
+- entity: sensor.nordpool_predict_fi_upcoming_wind_power
   name: Wind power forecast
   unit: MW
   curve: smooth
@@ -59,3 +55,5 @@ yaxis:
 ```
 
 Because the integration keeps the raw GitHub URL in the sensor attributes (`raw_source`), it is easy to point template sensors or automations to alternative mirrors if you ever move the data off GitHub Pages.
+
+Need a quick number card? Point Lovelace at `sensor.nordpool_predict_fi_price_now` (or `sensor.nordpool_predict_fi_windpower_now` if wind is enabled) to show the latest datapoint with minimal templating.

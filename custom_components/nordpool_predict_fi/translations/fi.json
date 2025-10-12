@@ -57,6 +57,18 @@
       },
       "nordpool_predict_fi__cheapest_12h": {
         "name": "Edullisin 12h hintajakso"
+      },
+      "nordpool_predict_fi__price_now": {
+        "name": "Hinta nyt"
+      },
+      "nordpool_predict_fi__windpower_now": {
+        "name": "Tuulivoima nyt"
+      },
+      "nordpool_predict_fi__narration_fi": {
+        "name": "Selostus (suomi)"
+      },
+      "nordpool_predict_fi__narration_en": {
+        "name": "Selostus (englanti)"
       }
     }
   }

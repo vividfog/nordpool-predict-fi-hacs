@@ -9,7 +9,11 @@ from aiohttp import ClientError
 from homeassistant.helpers.update_coordinator import UpdateFailed
 from zoneinfo import ZoneInfo
 
-from custom_components.nordpool_predict_fi.coordinator import NordpoolPredictCoordinator, PriceWindow
+from custom_components.nordpool_predict_fi.coordinator import (
+    NordpoolPredictCoordinator,
+    PriceWindow,
+    SeriesPoint,
+)
 
 
 class _MockResponse:
@@ -30,15 +34,25 @@ class _MockResponse:
     async def json(self, *args, **kwargs) -> Any:
         return self._payload
 
+    async def text(self) -> str:
+        if isinstance(self._payload, str):
+            return self._payload
+        raise AssertionError("Unexpected text() call for non-string payload")
+
 
 class _MockSession:
     def __init__(self, payloads: dict[str, Any]) -> None:
         self._payloads = payloads
 
     def get(self, url: str) -> _MockResponse:
-        if url not in self._payloads:
-            raise AssertionError(f"Unexpected URL requested: {url}")
-        return _MockResponse(self._payloads[url])
+        if url in self._payloads:
+            return _MockResponse(self._payloads[url])
+        if url.startswith("https://sahkotin.fi/prices.csv"):
+            payload = self._payloads.get("sahkotin")
+            if payload is None:
+                raise AssertionError("Sähkötin payload missing")
+            return _MockResponse(payload)
+        raise AssertionError(f"Unexpected URL requested: {url}")
 
 
 @pytest.mark.asyncio
@@ -56,11 +70,20 @@ async def test_coordinator_parses_series(hass, enable_custom_integrations, monke
         [(forecast_start + timedelta(hours=offset)).timestamp() * 1000, 3200.0 + offset * 5]
         for offset in range(120)
     ]
+    narration_fi = "  *Lyhyt tiivistelmä ensimmäiselle riville.*  \nLisärivi."
+    narration_en = "Short summary on the first line.\nMore detail."
+    realized_csv = "timestamp,price\n" + "\n".join(
+        f"{(forecast_start + timedelta(hours=offset)).isoformat()},{5.0 + offset}"
+        for offset in range(13)
+    )
 
     session = _MockSession(
         {
             f"{base_url}/prediction.json": forecast,
             f"{base_url}/windpower.json": wind,
+            f"{base_url}/narration.md": narration_fi,
+            f"{base_url}/narration_en.md": narration_en,
+            "sahkotin": realized_csv,
         }
     )
 
@@ -84,8 +107,11 @@ async def test_coordinator_parses_series(hass, enable_custom_integrations, monke
     data = coordinator.data
     price_section = data["price"]
     assert price_section["current"].value == pytest.approx(23.0)
-    assert price_section["forecast"][0].datetime == datetime(2024, 1, 1, 23, 0, tzinfo=timezone.utc)
-    assert len(price_section["forecast"]) == 49
+    assert price_section["forecast"][0].datetime == datetime(2024, 1, 1, 0, 0, tzinfo=timezone.utc)
+    assert price_section["forecast"][0].value == pytest.approx(5.0)
+    assert price_section["forecast"][12].value == pytest.approx(17.0)
+    assert price_section["forecast"][13].value == pytest.approx(13.0)
+    assert len(price_section["forecast"]) == 72
     windows = price_section["cheapest_windows"]
     window_3h = windows[3]
     assert isinstance(window_3h, PriceWindow)
@@ -105,6 +131,11 @@ async def test_coordinator_parses_series(hass, enable_custom_integrations, monke
     assert wind_section["series"][0].datetime == datetime(2024, 1, 1, 23, 0, tzinfo=timezone.utc)
     assert wind_section["current"].value == pytest.approx(3200.0 + 23 * 5)
     assert len(wind_section["series"]) == 97
+    narration = data["narration"]
+    assert narration["fi"]["content"] == "*Lyhyt tiivistelmä ensimmäiselle riville.*  \nLisärivi."
+    assert narration["fi"]["summary"] == "Lyhyt tiivistelmä ensimmäiselle riville."
+    assert narration["fi"]["source"] == f"{base_url}/narration.md"
+    assert narration["en"]["summary"] == "Short summary on the first line."
 
 
 @pytest.mark.asyncio
@@ -120,10 +151,17 @@ async def test_coordinator_filters_day_after_tomorrow_after_release(
         [(forecast_start + timedelta(hours=offset)).timestamp() * 1000, float(offset)]
         for offset in range(96)
     ]
+    realized_csv = "timestamp,price\n" + "\n".join(
+        f"{(forecast_start + timedelta(hours=offset)).isoformat()},{10.0 + offset}"
+        for offset in range(5)
+    )
 
     session = _MockSession(
         {
             f"{base_url}/prediction.json": forecast,
+            f"{base_url}/narration.md": "Example",
+            f"{base_url}/narration_en.md": "Example EN",
+            "sahkotin": realized_csv,
         }
     )
 
@@ -144,8 +182,10 @@ async def test_coordinator_filters_day_after_tomorrow_after_release(
     data = await coordinator._async_update_data()
 
     price_section = data["price"]
-    expected_start = datetime(2024, 1, 2, 23, 0, tzinfo=timezone.utc)
-    assert price_section["forecast"][0].datetime == expected_start
+    assert price_section["forecast"][0].datetime == datetime(2024, 1, 1, 0, 0, tzinfo=timezone.utc)
+    assert price_section["forecast"][4].datetime == datetime(2024, 1, 1, 4, 0, tzinfo=timezone.utc)
+    assert price_section["forecast"][5].datetime == datetime(2024, 1, 1, 5, 0, tzinfo=timezone.utc)
+    assert price_section["forecast"][-1].datetime == datetime(2024, 1, 4, 23, 0, tzinfo=timezone.utc)
     assert price_section["current"].value == pytest.approx(47.0)
 
 @pytest.mark.asyncio
@@ -178,6 +218,71 @@ async def test_safe_fetch_optional_swallows_errors(
 
     result = await coordinator._safe_fetch_optional(None, "windpower.json")
     assert result is None
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "raised_exception",
+    (
+        FileNotFoundError("missing"),
+        UpdateFailed("boom"),
+        ClientError("network"),
+        asyncio.TimeoutError(),
+    ),
+    ids=["file_not_found", "update_failed", "client_error", "timeout"],
+)
+async def test_safe_fetch_optional_text_swallows_errors(
+    hass, enable_custom_integrations, monkeypatch, raised_exception
+) -> None:
+    coordinator = NordpoolPredictCoordinator(
+        hass=hass,
+        entry_id="test",
+        base_url="https://example.com/deploy",
+        include_windpower=True,
+        update_interval=timedelta(minutes=15),
+    )
+
+    async def _failing_fetch(session, suffix):
+        raise raised_exception
+
+    monkeypatch.setattr(coordinator, "_fetch_text", _failing_fetch)
+
+    result = await coordinator._safe_fetch_optional_text(None, "narration.md")
+    assert result is None
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "raised_exception",
+    (
+        UpdateFailed("boom"),
+        ClientError("network"),
+        asyncio.TimeoutError(),
+    ),
+    ids=["update_failed", "client_error", "timeout"],
+)
+async def test_safe_fetch_sahkotin_series_swallows_errors(
+    hass, enable_custom_integrations, monkeypatch, raised_exception
+) -> None:
+    coordinator = NordpoolPredictCoordinator(
+        hass=hass,
+        entry_id="test",
+        base_url="https://example.com/deploy",
+        include_windpower=True,
+        update_interval=timedelta(minutes=15),
+    )
+
+    async def _failing_fetch(session, start, end):
+        raise raised_exception
+
+    monkeypatch.setattr(coordinator, "_fetch_sahkotin_csv", _failing_fetch)
+
+    result = await coordinator._safe_fetch_sahkotin_series(
+        None,
+        datetime(2024, 1, 1, tzinfo=timezone.utc),
+        datetime(2024, 1, 2, tzinfo=timezone.utc),
+    )
+    assert result == []
 
 
 @pytest.mark.asyncio
@@ -216,3 +321,66 @@ async def test_fetch_json_invalid_payload_raises_update_failed(
 
     with pytest.raises(UpdateFailed):
         await coordinator._fetch_json(session, "prediction.json")
+
+
+def _coordinator(hass, include_windpower: bool = True) -> NordpoolPredictCoordinator:
+    return NordpoolPredictCoordinator(
+        hass=hass,
+        entry_id="test",
+        base_url="https://example.com/deploy",
+        include_windpower=include_windpower,
+        update_interval=timedelta(minutes=15),
+    )
+
+
+def test_find_cheapest_window_requires_hourly_sequence(hass, enable_custom_integrations) -> None:
+    coordinator = _coordinator(hass)
+    base = datetime(2024, 1, 1, tzinfo=timezone.utc)
+    irregular_series = [
+        SeriesPoint(datetime=base, value=10.0),
+        SeriesPoint(datetime=base + timedelta(hours=1), value=11.0),
+        SeriesPoint(datetime=base + timedelta(hours=2, minutes=30), value=9.0),
+    ]
+
+    assert coordinator._find_cheapest_window(irregular_series, 3) is None
+
+
+def test_parse_sahkotin_csv_filters_and_normalizes(hass, enable_custom_integrations) -> None:
+    coordinator = _coordinator(hass)
+    earliest = datetime(2024, 1, 1, 10, tzinfo=timezone.utc)
+    csv_text = "\n".join(
+        [
+            "timestamp,price",
+            "2024-01-01T09:00:00Z,18.2",
+            "2024-01-01 12:00:00,19.4",
+            "invalid,line",
+            "2024-01-01T13:00:00+02:00,20.1",
+            ",",
+            "2024-01-01T14:00:00,not-a-number",
+        ]
+    )
+
+    series = coordinator._parse_sahkotin_csv(csv_text, earliest)
+
+    assert len(series) == 2
+    assert series[0].datetime == datetime(2024, 1, 1, 11, tzinfo=timezone.utc)
+    assert series[0].value == pytest.approx(20.1)
+    assert series[1].datetime == datetime(2024, 1, 1, 12, tzinfo=timezone.utc)
+    assert series[1].value == pytest.approx(19.4)
+
+
+def test_build_summary_skips_tables_and_truncates(hass, enable_custom_integrations) -> None:
+    coordinator = _coordinator(hass)
+    content = (
+        "| table | row |\n"
+        "\n"
+        "  __This line will be very long " + "x" * 260 + "__\n"
+        "\n"
+        "  Short fallback line.\n"
+    )
+
+    summary = coordinator._build_summary(content)
+
+    assert summary.endswith("...")
+    assert len(summary) <= 255
+    assert "table" not in summary

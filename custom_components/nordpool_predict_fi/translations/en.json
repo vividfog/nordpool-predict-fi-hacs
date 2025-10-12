@@ -57,6 +57,18 @@
       },
       "nordpool_predict_fi__cheapest_12h": {
         "name": "Cheapest 12h Price Window"
+      },
+      "nordpool_predict_fi__price_now": {
+        "name": "Price Now"
+      },
+      "nordpool_predict_fi__windpower_now": {
+        "name": "Wind Power Now"
+      },
+      "nordpool_predict_fi__narration_fi": {
+        "name": "Narration (Finnish)"
+      },
+      "nordpool_predict_fi__narration_en": {
+        "name": "Narration (English)"
       }
     }
   }

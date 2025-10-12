@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
+from datetime import datetime, timezone
 from typing import Any
 
 from homeassistant.components.sensor import SensorEntity, SensorStateClass
@@ -12,8 +13,13 @@ from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from .const import (
     ATTR_FORECAST,
+    ATTR_LANGUAGE,
+    ATTR_NARRATION_CONTENT,
+    ATTR_NARRATION_SUMMARY,
     ATTR_NEXT_VALID_FROM,
     ATTR_RAW_SOURCE,
+    ATTR_SOURCE_URL,
+    ATTR_TIMESTAMP,
     ATTR_WIND_FORECAST,
     ATTR_WINDOW_DURATION,
     ATTR_WINDOW_END,
@@ -22,6 +28,8 @@ from .const import (
     CHEAPEST_WINDOW_HOURS,
     DATA_COORDINATOR,
     DOMAIN,
+    NARRATION_LANGUAGES,
+    NARRATION_LANGUAGE_NAMES,
 )
 from .coordinator import NordpoolPredictCoordinator, PriceWindow, SeriesPoint
 
@@ -35,13 +43,23 @@ async def async_setup_entry(
 
     entities: list[SensorEntity] = [
         NordpoolPriceSensor(coordinator, entry),
+        NordpoolPriceNowSensor(coordinator, entry),
     ]
     entities.extend(
         NordpoolCheapestWindowSensor(coordinator, entry, hours) for hours in CHEAPEST_WINDOW_HOURS
     )
 
     if coordinator.include_windpower:
-        entities.append(NordpoolWindpowerSensor(coordinator, entry))
+        entities.extend(
+            (
+                NordpoolWindpowerSensor(coordinator, entry),
+                NordpoolWindpowerNowSensor(coordinator, entry),
+            )
+        )
+
+    entities.extend(
+        NordpoolNarrationSensor(coordinator, entry, language) for language in NARRATION_LANGUAGES
+    )
 
     async_add_entities(entities)
 
@@ -90,6 +108,15 @@ class NordpoolBaseSensor(CoordinatorEntity[NordpoolPredictCoordinator], SensorEn
         if isinstance(window, PriceWindow):
             return window
         return None
+
+    def _price_series(self) -> list[SeriesPoint]:
+        section = self._price_section()
+        if not section:
+            return []
+        series = section.get("forecast")
+        if not isinstance(series, list):
+            return []
+        return [point for point in series if isinstance(point, SeriesPoint)]
 
     @staticmethod
     def _rounded_value(value: float, decimals: int | None) -> float | int:
@@ -140,6 +167,47 @@ class NordpoolPriceSensor(NordpoolBaseSensor):
         if isinstance(value, SeriesPoint):
             return value
         return None
+
+
+class NordpoolPriceNowSensor(NordpoolBaseSensor):
+    _attr_translation_key = "price_now"
+    _attr_icon = "mdi:cash-clock"
+    _attr_native_unit_of_measurement = "c/kWh"
+    _attr_state_class = SensorStateClass.MEASUREMENT
+
+    def __init__(self, coordinator: NordpoolPredictCoordinator, entry: ConfigEntry) -> None:
+        super().__init__(coordinator, entry)
+        self._attr_unique_id = f"{entry.entry_id}_price_now"
+        self._attr_name = "Price Now"
+
+    @property
+    def native_value(self) -> float | None:
+        point = self._latest_point()
+        return round(point.value, 1) if point else None
+
+    @property
+    def extra_state_attributes(self) -> Mapping[str, Any] | None:
+        point = self._latest_point()
+        return {
+            ATTR_TIMESTAMP: point.datetime.isoformat() if point else None,
+            ATTR_RAW_SOURCE: self.coordinator.base_url,
+        }
+
+    def _latest_point(self) -> SeriesPoint | None:
+        series = self._price_series()
+        if not series:
+            return None
+        # Use coordinator's current_time if available, otherwise fallback to datetime.now(timezone.utc)
+        now = getattr(self.coordinator, "current_time", None)
+        if now is None:
+            now = datetime.now(timezone.utc)
+        latest: SeriesPoint | None = None
+        for point in series:
+            if point.datetime <= now:
+                latest = point
+            else:
+                break
+        return latest or series[0]
 
 
 class NordpoolCheapestWindowSensor(NordpoolBaseSensor):
@@ -211,3 +279,96 @@ class NordpoolWindpowerSensor(NordpoolBaseSensor):
 
     def _section(self) -> Mapping[str, Any] | None:
         return (self.coordinator.data or {}).get("windpower")
+
+
+class NordpoolWindpowerNowSensor(NordpoolBaseSensor):
+    _attr_translation_key = "windpower_now"
+    _attr_icon = "mdi:weather-windy"
+    _attr_native_unit_of_measurement = "MW"
+    _attr_state_class = SensorStateClass.MEASUREMENT
+
+    def __init__(self, coordinator: NordpoolPredictCoordinator, entry: ConfigEntry) -> None:
+        super().__init__(coordinator, entry)
+        self._attr_unique_id = f"{entry.entry_id}_windpower_now"
+        self._attr_name = "Wind Power Now"
+
+    @property
+    def native_value(self) -> float | None:
+        point = self._current_point()
+        if not point:
+            return None
+        return int(round(point.value))
+
+    @property
+    def extra_state_attributes(self) -> Mapping[str, Any] | None:
+        point = self._current_point()
+        return {
+            ATTR_TIMESTAMP: point.datetime.isoformat() if point else None,
+            ATTR_RAW_SOURCE: self.coordinator.base_url,
+        }
+
+    def _current_point(self) -> SeriesPoint | None:
+        section = (self.coordinator.data or {}).get("windpower")
+        if not isinstance(section, Mapping):
+            return None
+        current = section.get("current")
+        if isinstance(current, SeriesPoint):
+            return current
+        series = section.get("series")
+        if isinstance(series, list):
+            for point in series:
+                if isinstance(point, SeriesPoint):
+                    return point
+        return None
+
+
+class NordpoolNarrationSensor(NordpoolBaseSensor):
+    _attr_icon = "mdi:file-document-edit-outline"
+
+    def __init__(self, coordinator: NordpoolPredictCoordinator, entry: ConfigEntry, language: str) -> None:
+        super().__init__(coordinator, entry)
+        self._language = language
+        self._attr_translation_key = f"narration_{language}"
+        display_language = NARRATION_LANGUAGE_NAMES.get(language, language.upper())
+        self._attr_unique_id = f"{entry.entry_id}_narration_{language}"
+        self._attr_name = f"Narration ({display_language})"
+
+    @property
+    def native_value(self) -> str | None:
+        section = self._section()
+        if not section:
+            return None
+        summary = section.get("summary")
+        if isinstance(summary, str) and summary:
+            return summary
+        return None
+
+    @property
+    def extra_state_attributes(self) -> Mapping[str, Any] | None:
+        section = self._section()
+        attributes: dict[str, Any] = {
+            ATTR_LANGUAGE: self._language,
+            ATTR_RAW_SOURCE: self.coordinator.base_url,
+        }
+        if not section:
+            return attributes
+        summary = section.get("summary")
+        content = section.get("content")
+        source = section.get("source")
+        if isinstance(summary, str) and summary:
+            attributes[ATTR_NARRATION_SUMMARY] = summary
+        if isinstance(content, str) and content:
+            attributes[ATTR_NARRATION_CONTENT] = content
+        if isinstance(source, str) and source:
+            attributes[ATTR_SOURCE_URL] = source
+        return attributes
+
+    def _section(self) -> Mapping[str, Any] | None:
+        data = self.coordinator.data or {}
+        narration = data.get("narration")
+        if not isinstance(narration, Mapping):
+            return None
+        section = narration.get(self._language)
+        if isinstance(section, Mapping):
+            return section
+        return None

@@ -12,13 +12,32 @@ The sample YAML cards ship with Nordpool’s realised prices from `sensor.nordpo
 
 | Entity | Type | Description |
 | --- | --- | --- |
-| `sensor.nordpool_predict_fi_upcoming_price` | Sensor | Upcoming hourly price (`c/kWh`) with the full forecast and `next_valid_from` timestamp attribute. |
+| `sensor.nordpool_predict_fi_upcoming_price` | Sensor | Continuous hourly price timeline (`c/kWh`) built from Sähkötin realizations + Nordpool Predict forecasts, with `next_valid_from` for the next market update. |
+| `sensor.nordpool_predict_fi_price_now` | Sensor | Latest price value at or before the current hour, plus the timestamp it originated from. |
 | `sensor.nordpool_predict_fi_upcoming_wind_power` | Optional sensor | Upcoming wind production forecast (MW) with the forecast series and `next_valid_from` attribute. |
+| `sensor.nordpool_predict_fi_windpower_now` | Optional sensor | Wind power value for the next hour (same as `current` in the feed) with its timestamp. |
 | `sensor.nordpool_predict_fi_cheapest_3h_price_window` | Sensor | Lowest average of any 3-hour window ahead; attributes expose `window_start`, `window_end`, `window_points`, and `raw_source`. |
 | `sensor.nordpool_predict_fi_cheapest_6h_price_window` | Sensor | Same as above for 6-hour windows, useful for longer running appliances. |
 | `sensor.nordpool_predict_fi_cheapest_12h_price_window` | Sensor | Tracks the cheapest 12-hour block for day-level planning. |
+| `sensor.nordpool_predict_fi_narration_fi` | Sensor | Finnish narration summary/ingress as the sensor state; the full Markdown lives in `content` with `source_url` pointing at the raw file. |
+| `sensor.nordpool_predict_fi_narration_en` | Sensor | English narration equivalent with the same attributes for dashboards or automations. |
 
 All timestamps are UTC ISO8601 strings; Home Assistant handles local conversion based on your instance settings.
+
+Price data is provided courtesy of [Sähkötin](https://sahkotin.fi/hours).
+
+### Showing the narration
+
+Use a Markdown card to render the full narration; the example below pulls the Finnish text and falls back to English if it is missing:
+
+```yaml
+type: markdown
+content: |
+  {{ state_attr('sensor.nordpool_predict_fi_narration_fi', 'content')
+     or state_attr('sensor.nordpool_predict_fi_narration_en', 'content') }}
+```
+
+Both narration sensors expose `language`, `summary`, `content`, and `source_url` attributes so you can automate announcements, notifications, or alternative Lovelace cards.
 
 ---
 
@@ -46,9 +65,14 @@ The host needs tzdata with the `Europe/Helsinki` zone. If that package is missin
 ## Working With the Data
 
 - Forecast rows are treated as hourly points sorted by time.
-- Only future predictions are exposed, trimmed according to the 14:00 cutoff described above.
-- The coordinator returns the trimmed forecast and the next timestamp when prices change.
+- Sähkötin CSV data for the current Helsinki day is merged with Nordpool Predict forecasts, so the `forecast` attribute already contains realized + predicted prices in one timeline.
+- Model-only features (cheapest windows, `next_valid_from`) still respect the 14:00 Nordpool market release.
 - Rolling cheapest windows (3h, 6h, 12h) are calculated in the coordinator and exposed both as sensor states (average price) and attributes for automations.
+
+## Data Sources
+
+- Hourly realized prices: [Sähkötin](https://sahkotin.fi/hours)
+- Forecast artifacts: [`prediction.json`](https://raw.githubusercontent.com/vividfog/nordpool-predict-fi/main/deploy/prediction.json), optional [`windpower.json`](https://raw.githubusercontent.com/vividfog/nordpool-predict-fi/main/deploy/windpower.json)
 
 ## Dashboard Cards
 
