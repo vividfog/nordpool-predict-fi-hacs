@@ -67,7 +67,9 @@ series:
     show:
       in_legend: true
       legend_value: false
-  - entity: sensor.nordpool_kwh_fi_eur_3_10_0255 // VAT 25.5% sensor
+
+  # This is a VAT 25.5% sensor; replace with your own if needed, note tax rate calculation below
+  - entity: sensor.nordpool_kwh_fi_eur_3_10_0255
     yaxis_id: price
     type: column
     float_precision: 3
