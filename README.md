@@ -47,7 +47,9 @@ Both narration sensors expose `language`, `summary`, `content`, and `source_url`
 
 ## Installation (HACS)
 
-1. Open HACS → Integrations → *Custom repositories* → add `https://github.com/vividfog/nordpool-predict-fi-hacs` (`Integration` category).
+1. Open HACS → Integrations → *Custom repositories* → add:
+  - `https://github.com/vividfog/nordpool-predict-fi-hacs`
+  - `Integration` category
 2. Install **Nordpool Predict FI** from HACS and restart Home Assistant.
 
 ---
@@ -76,7 +78,7 @@ The host needs tzdata with the `Europe/Helsinki` zone. If that package is missin
 ## Data Sources
 
 - Hourly realized prices: [Sähkötin](https://sahkotin.fi/hours)
-- Forecast artifacts: [`prediction.json`](https://raw.githubusercontent.com/vividfog/nordpool-predict-fi/main/deploy/prediction.json), optional [`windpower.json`](https://raw.githubusercontent.com/vividfog/nordpool-predict-fi/main/deploy/windpower.json)
+- Forecast artifacts: [`prediction.json`](https://raw.githubusercontent.com/vividfog/nordpool-predict-fi/main/deploy/prediction.json) and [`windpower.json`](https://raw.githubusercontent.com/vividfog/nordpool-predict-fi/main/deploy/windpower.json)
 
 ## Dashboard Cards
 

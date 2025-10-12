@@ -9,14 +9,7 @@ from homeassistant.core import callback
 from homeassistant.data_entry_flow import FlowResult
 from homeassistant.helpers import config_validation as cv
 
-from .const import (
-    CONF_BASE_URL,
-    CONF_INCLUDE_WINDPOWER,
-    CONF_UPDATE_INTERVAL,
-    DEFAULT_BASE_URL,
-    DEFAULT_UPDATE_INTERVAL_MINUTES,
-    DOMAIN,
-)
+from .const import CONF_BASE_URL, CONF_UPDATE_INTERVAL, DEFAULT_BASE_URL, DEFAULT_UPDATE_INTERVAL_MINUTES, DOMAIN
 
 
 class NordpoolPredictConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
@@ -109,10 +102,6 @@ def _form_schema(defaults: Mapping[str, Any] | None = None) -> vol.Schema:
                 CONF_UPDATE_INTERVAL,
                 default=defaults.get(CONF_UPDATE_INTERVAL, DEFAULT_UPDATE_INTERVAL_MINUTES),
             ): vol.All(vol.Coerce(int), vol.Range(min=1, max=720)),
-            vol.Required(
-                CONF_INCLUDE_WINDPOWER,
-                default=defaults.get(CONF_INCLUDE_WINDPOWER, True),
-            ): bool,
         }
     )
 
@@ -124,7 +113,6 @@ def _entry_to_defaults(entry: config_entries.ConfigEntry) -> dict[str, Any]:
     return {
         CONF_BASE_URL: combined.get(CONF_BASE_URL, DEFAULT_BASE_URL),
         CONF_UPDATE_INTERVAL: combined.get(CONF_UPDATE_INTERVAL, DEFAULT_UPDATE_INTERVAL_MINUTES),
-        CONF_INCLUDE_WINDPOWER: combined.get(CONF_INCLUDE_WINDPOWER, True),
     }
 
 

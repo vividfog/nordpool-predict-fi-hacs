@@ -51,14 +51,12 @@ async def async_setup_entry(
     entities.extend(
         NordpoolCheapestWindowSensor(coordinator, entry, hours) for hours in CHEAPEST_WINDOW_HOURS
     )
-
-    if coordinator.include_windpower:
-        entities.extend(
-            (
-                NordpoolWindpowerSensor(coordinator, entry),
-                NordpoolWindpowerNowSensor(coordinator, entry),
-            )
+    entities.extend(
+        (
+            NordpoolWindpowerSensor(coordinator, entry),
+            NordpoolWindpowerNowSensor(coordinator, entry),
         )
+    )
 
     entities.extend(
         NordpoolNarrationSensor(coordinator, entry, language) for language in NARRATION_LANGUAGES

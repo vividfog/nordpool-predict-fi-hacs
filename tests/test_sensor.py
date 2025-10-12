@@ -39,7 +39,7 @@ def _series_point(hours: int, value: float, base: datetime) -> SeriesPoint:
 
 @pytest.mark.asyncio
 async def test_async_setup_entry_registers_entities(hass, enable_custom_integrations) -> None:
-    """Price sensor should register alongside optional wind sensor."""
+    """Price and wind sensors should register together."""
     entry = MockConfigEntry(
         domain=DOMAIN,
         unique_id=DOMAIN,
@@ -52,7 +52,6 @@ async def test_async_setup_entry_registers_entities(hass, enable_custom_integrat
         hass=hass,
         entry_id=entry.entry_id,
         base_url="https://example.com/deploy",
-        include_windpower=True,
         update_interval=timedelta(minutes=15),
     )
 
@@ -200,8 +199,8 @@ async def test_async_setup_entry_registers_entities(hass, enable_custom_integrat
 
 
 @pytest.mark.asyncio
-async def test_async_setup_entry_without_optional_feeds(hass, enable_custom_integrations) -> None:
-    """Only price sensor should be added when wind is disabled."""
+async def test_async_setup_entry_handles_missing_wind_data(hass, enable_custom_integrations) -> None:
+    """Wind sensors are registered even when wind data is unavailable."""
     entry = MockConfigEntry(
         domain=DOMAIN,
         unique_id=DOMAIN,
@@ -214,7 +213,6 @@ async def test_async_setup_entry_without_optional_feeds(hass, enable_custom_inte
         hass=hass,
         entry_id=entry.entry_id,
         base_url="https://example.com/deploy",
-        include_windpower=False,
         update_interval=timedelta(minutes=15),
     )
 
@@ -246,9 +244,10 @@ async def test_async_setup_entry_without_optional_feeds(hass, enable_custom_inte
 
     added: list[sensor.NordpoolBaseSensor] = []
     expected_entity_count = (
-        6  # NordpoolPriceSensor, NordpoolPriceNowSensor, and 4 next hour sensors
-        + len(CHEAPEST_WINDOW_HOURS)  # NordpoolCheapestWindowSensor(s)
-        + len(NARRATION_LANGUAGES)  # NordpoolNarrationSensor(s)
+        6  # price sensors + next hour sensors
+        + 2  # wind sensors still registered
+        + len(CHEAPEST_WINDOW_HOURS)
+        + len(NARRATION_LANGUAGES)
     )
 
     def _add_entities(new_entities: list[Any], update_before_add: bool = False) -> None:
@@ -259,6 +258,8 @@ async def test_async_setup_entry_without_optional_feeds(hass, enable_custom_inte
     assert len(added) == expected_entity_count
     assert sum(isinstance(entity, sensor.NordpoolPriceSensor) for entity in added) == 1
     assert sum(isinstance(entity, sensor.NordpoolPriceNowSensor) for entity in added) == 1
+    assert sum(isinstance(entity, sensor.NordpoolWindpowerSensor) for entity in added) == 1
+    assert sum(isinstance(entity, sensor.NordpoolWindpowerNowSensor) for entity in added) == 1
     attrs = next(entity for entity in added if isinstance(entity, sensor.NordpoolPriceSensor)).extra_state_attributes
     assert ATTR_NEXT_VALID_FROM not in attrs
 
@@ -267,6 +268,18 @@ async def test_async_setup_entry_without_optional_feeds(hass, enable_custom_inte
     assert price_now.native_value == pytest.approx(4.8)
     assert price_now_attrs[ATTR_TIMESTAMP] == _series_point(0, 4.8, now).datetime.isoformat()
     assert price_now_attrs[ATTR_RAW_SOURCE] == "https://example.com/deploy"
+
+    wind_sensor = next(entity for entity in added if isinstance(entity, sensor.NordpoolWindpowerSensor))
+    assert wind_sensor.native_value is None
+    assert wind_sensor.extra_state_attributes is None
+
+    wind_now_sensor = next(
+        entity for entity in added if isinstance(entity, sensor.NordpoolWindpowerNowSensor)
+    )
+    assert wind_now_sensor.native_value is None
+    wind_now_attrs = wind_now_sensor.extra_state_attributes
+    assert wind_now_attrs[ATTR_TIMESTAMP] is None
+    assert wind_now_attrs[ATTR_RAW_SOURCE] == "https://example.com/deploy"
 
     cheapest_entities = [
         entity for entity in added if isinstance(entity, sensor.NordpoolCheapestWindowSensor)

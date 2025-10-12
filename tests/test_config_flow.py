@@ -9,7 +9,6 @@ from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.nordpool_predict_fi.const import (
     CONF_BASE_URL,
-    CONF_INCLUDE_WINDPOWER,
     CONF_UPDATE_INTERVAL,
     DEFAULT_BASE_URL,
     DEFAULT_UPDATE_INTERVAL_MINUTES,
@@ -36,7 +35,6 @@ async def test_full_config_flow(hass: HomeAssistant, enable_custom_integrations,
     user_input = {
         CONF_BASE_URL: DEFAULT_BASE_URL,
         CONF_UPDATE_INTERVAL: DEFAULT_UPDATE_INTERVAL_MINUTES,
-        CONF_INCLUDE_WINDPOWER: True,
     }
     result = await hass.config_entries.flow.async_configure(
         result["flow_id"],
@@ -46,7 +44,7 @@ async def test_full_config_flow(hass: HomeAssistant, enable_custom_integrations,
     assert result["type"] == FlowResultType.CREATE_ENTRY
     assert result["title"] == "Nordpool Predict FI"
     assert result["data"][CONF_BASE_URL] == DEFAULT_BASE_URL
-    assert result["data"][CONF_INCLUDE_WINDPOWER] is True
+    assert result["data"][CONF_UPDATE_INTERVAL] == DEFAULT_UPDATE_INTERVAL_MINUTES
 
 
 async def test_options_flow(hass: HomeAssistant, enable_custom_integrations, monkeypatch) -> None:
@@ -66,7 +64,6 @@ async def test_options_flow(hass: HomeAssistant, enable_custom_integrations, mon
         data={
             CONF_BASE_URL: DEFAULT_BASE_URL,
             CONF_UPDATE_INTERVAL: DEFAULT_UPDATE_INTERVAL_MINUTES,
-            CONF_INCLUDE_WINDPOWER: True,
         },
     )
     entry.add_to_hass(hass)
@@ -77,7 +74,6 @@ async def test_options_flow(hass: HomeAssistant, enable_custom_integrations, mon
     updated = {
         CONF_BASE_URL: f"{DEFAULT_BASE_URL}/alt",
         CONF_UPDATE_INTERVAL: 45,
-        CONF_INCLUDE_WINDPOWER: True,
     }
     result = await hass.config_entries.options.async_configure(
         result["flow_id"],
@@ -85,8 +81,8 @@ async def test_options_flow(hass: HomeAssistant, enable_custom_integrations, mon
     )
 
     assert result["type"] == FlowResultType.CREATE_ENTRY
+    assert entry.options[CONF_BASE_URL] == f"{DEFAULT_BASE_URL}/alt"
     assert entry.options[CONF_UPDATE_INTERVAL] == 45
-    assert entry.options[CONF_INCLUDE_WINDPOWER] is True
 
 
 async def test_user_flow_invalid_url(hass: HomeAssistant, enable_custom_integrations) -> None:
@@ -102,7 +98,6 @@ async def test_user_flow_invalid_url(hass: HomeAssistant, enable_custom_integrat
         user_input={
             CONF_BASE_URL: "not-a-url",
             CONF_UPDATE_INTERVAL: DEFAULT_UPDATE_INTERVAL_MINUTES,
-            CONF_INCLUDE_WINDPOWER: True,
         },
     )
 
@@ -127,7 +122,6 @@ async def test_options_flow_invalid_url(hass: HomeAssistant, enable_custom_integ
         data={
             CONF_BASE_URL: DEFAULT_BASE_URL,
             CONF_UPDATE_INTERVAL: DEFAULT_UPDATE_INTERVAL_MINUTES,
-            CONF_INCLUDE_WINDPOWER: True,
         },
     )
     entry.add_to_hass(hass)
@@ -140,7 +134,6 @@ async def test_options_flow_invalid_url(hass: HomeAssistant, enable_custom_integ
         user_input={
             CONF_BASE_URL: "nope",
             CONF_UPDATE_INTERVAL: DEFAULT_UPDATE_INTERVAL_MINUTES,
-            CONF_INCLUDE_WINDPOWER: True,
         },
     )
 
@@ -168,7 +161,6 @@ async def test_reconfigure_flow_prefills_defaults(hass: HomeAssistant, enable_cu
         },
         options={
             CONF_BASE_URL: f"{DEFAULT_BASE_URL}/alt",
-            CONF_INCLUDE_WINDPOWER: False,
         },
     )
     entry.add_to_hass(hass)
@@ -184,7 +176,6 @@ async def test_reconfigure_flow_prefills_defaults(hass: HomeAssistant, enable_cu
     defaults = flow["data_schema"]({})
     assert defaults[CONF_BASE_URL] == f"{DEFAULT_BASE_URL}/alt"
     assert defaults[CONF_UPDATE_INTERVAL] == DEFAULT_UPDATE_INTERVAL_MINUTES
-    assert defaults[CONF_INCLUDE_WINDPOWER] is False
 
 
 async def test_reconfigure_flow_updates_entry(hass: HomeAssistant, enable_custom_integrations, monkeypatch) -> None:
@@ -203,7 +194,6 @@ async def test_reconfigure_flow_updates_entry(hass: HomeAssistant, enable_custom
         title="Nordpool Predict FI",
         data={
             CONF_BASE_URL: DEFAULT_BASE_URL,
-            CONF_INCLUDE_WINDPOWER: True,
         },
         options={},
     )
@@ -223,7 +213,6 @@ async def test_reconfigure_flow_updates_entry(hass: HomeAssistant, enable_custom
         user_input={
             CONF_BASE_URL: f"{DEFAULT_BASE_URL}/custom/",
             CONF_UPDATE_INTERVAL: 120,
-            CONF_INCLUDE_WINDPOWER: False,
         },
     )
 
@@ -231,4 +220,3 @@ async def test_reconfigure_flow_updates_entry(hass: HomeAssistant, enable_custom
     assert result["title"] == entry.title
     assert result["data"][CONF_BASE_URL] == f"{DEFAULT_BASE_URL}/custom"
     assert result["data"][CONF_UPDATE_INTERVAL] == 120
-    assert result["data"][CONF_INCLUDE_WINDPOWER] is False

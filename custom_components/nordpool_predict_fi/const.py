@@ -12,7 +12,6 @@ DEFAULT_UPDATE_INTERVAL = timedelta(minutes=DEFAULT_UPDATE_INTERVAL_MINUTES)
 
 CONF_BASE_URL = "base_url"
 CONF_UPDATE_INTERVAL = "update_interval"
-CONF_INCLUDE_WINDPOWER = "include_windpower"
 
 DATA_COORDINATOR = "coordinator"
 DATA_UNSUB_LISTENER = "unsub_listener"

@@ -17,8 +17,8 @@ except Exception:  # pragma: no cover - script still works without HA deps
     DEFAULT_BASE_URL = "https://raw.githubusercontent.com/vividfog/nordpool-predict-fi/main/deploy"
 
 ARTIFACTS = (
-    ("prediction.json", True),
-    ("windpower.json", False),
+    "prediction.json",
+    "windpower.json",
 )
 
 
@@ -110,25 +110,17 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--base-url", default=DEFAULT_BASE_URL, help="HTTP(S) base URL or local folder with JSON files")
     parser.add_argument("--timeout", type=float, default=15.0, help="HTTP timeout in seconds")
-    parser.add_argument("--include-windpower", action="store_true", help="Fetch windpower.json even if disabled in HA")
-    parser.add_argument("--strict", action="store_true", help="Treat optional artifacts as mandatory")
+    parser.add_argument("--strict", action="store_true", help="Treat missing artifacts as fatal")
 
     args = parser.parse_args(argv)
 
-    wanted = {
-        "prediction.json": True,
-        "windpower.json": args.include_windpower,
-    }
-
     exit_code = 0
-    for filename, required in ARTIFACTS:
-        if not (required or wanted.get(filename)):
-            continue
+    for filename in ARTIFACTS:
         try:
             payload = load_artifact(args.base_url, filename, args.timeout)
         except Exception as err:
             print(f"✗ {filename}: {err}", file=sys.stderr)
-            if required or args.strict:
+            if args.strict:
                 exit_code = 1
             continue
 

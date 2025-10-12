@@ -7,17 +7,15 @@
         "description": "Visa Nordpool Predict FI-prognoser i Home Assistant.",
         "data": {
           "base_url": "Bas-URL",
-          "update_interval": "Uppdateringsintervall (minuter)",
-          "include_windpower": "Hämta vindkraftsdata"
+          "update_interval": "Uppdateringsintervall (minuter)"
         }
       },
       "reconfigure": {
         "title": "Nordpool Predict FI",
-        "description": "Kontrollera anslutningsuppgifter eller valfria dataströmmar.",
+        "description": "Kontrollera anslutningsuppgifter eller uppdatera inställningar.",
         "data": {
           "base_url": "Bas-URL",
-          "update_interval": "Uppdateringsintervall (minuter)",
-          "include_windpower": "Hämta vindkraftsdata"
+          "update_interval": "Uppdateringsintervall (minuter)"
         }
       }
     },
@@ -29,11 +27,10 @@
     "step": {
       "init": {
         "title": "Nordpool Predict FI-alternativ",
-        "description": "Justera uppdateringsintervall och valfria dataströmmar.",
+        "description": "Justera uppdateringsintervall eller bas-URL.",
         "data": {
           "base_url": "Bas-URL",
-          "update_interval": "Uppdateringsintervall (minuter)",
-          "include_windpower": "Hämta vindkraftsdata"
+          "update_interval": "Uppdateringsintervall (minuter)"
         }
       }
     },

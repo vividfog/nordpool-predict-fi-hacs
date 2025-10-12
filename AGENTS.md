@@ -3,7 +3,7 @@
 ## Snapshot
 - Custom Home Assistant integration; core code under `custom_components/nordpool_predict_fi/`.
 - Python 3.12 target; asynchronous I/O via Home Assistant helpers.
-- External data: realized prices from [Sähkötin](https://sahkotin.fi/hours) plus forecasts from `prediction.json` (and optional `windpower.json`).
+- External data: realized prices from [Sähkötin](https://sahkotin.fi/hours) plus forecasts from `prediction.json` and `windpower.json`.
 - Integration platforms: `sensor`.
 - Sample Lovelace cards in repo root (ApexCharts) for price + wind.
 
@@ -11,7 +11,7 @@
 - `__init__.py`: sets up `DataUpdateCoordinator`, registers platforms, normalises config entry options.
 - `const.py`: domain constants, default config, attribute keys.
 - `coordinator.py`: fetches Sähkötin CSV + JSON artifacts, merges realized/forecast price timelines, applies Helsinki release rules, exposes `SeriesPoint` and `PriceWindow` dataclasses plus price/wind payloads.
-- `sensor.py`: sensor entities (upcoming + now price, optional upcoming + now wind) keyed off coordinator data.
+- `sensor.py`: sensor entities (upcoming + now price, upcoming + now wind) keyed off coordinator data.
 - `manifest.json`: minimal metadata (version, requirements, HA integration info).
 - `tests/conftest.py`: injects project root into `sys.path` so tests can import `custom_components`.
 
@@ -23,7 +23,7 @@
   - Pulls Sähkötin CSV for the current Helsinki day and merges realized rows with forecast data from today onwards.
   - Current point found from merged series (latest point ≤ now).
   - Cheapest windows (3h/6h/12h) calculated across entire merged series (realized + forecast).
-- Wind optional toggled by config flag; filtered same way as price (from today midnight).
+- Wind series filtered the same way as price (from today midnight).
 - Cheapest rolling windows (3h/6h/12h) are derived from contiguous hourly points across full merged data and cached for sensor use.
 - Networking via `aiohttp` session + `async_timeout`.
 
@@ -35,13 +35,13 @@
 - `sensor.nordpool_predict_fi_price_next_3h` → attributes `timestamp`, `raw_source` (average over next 3 hours: T+1 to T+3).
 - `sensor.nordpool_predict_fi_price_next_6h` → attributes `timestamp`, `raw_source` (average over next 6 hours: T+1 to T+6).
 - `sensor.nordpool_predict_fi_price_next_12h` → attributes `timestamp`, `raw_source` (average over next 12 hours: T+1 to T+12).
-- Wind sensors (when enabled):
+- Wind sensors:
   - `sensor.nordpool_predict_fi_windpower` → attributes `windpower_forecast`, `raw_source`.
   - `sensor.nordpool_predict_fi_windpower_now` → attributes `timestamp`, `raw_source`.
 - Cheapest price window sensors (`sensor.nordpool_predict_fi_cheapest_3h_price_window`, `..._6h_...`, `..._12h_...`) expose lowest rolling averages across entire data timeline along with `window_start`, `window_end`, `window_points`, and `raw_source` attributes.
 
 ## Configuration & Options
-- Config flow (via `config_flow.py`) exposes base URL, update interval (1–720 minutes), optional feeds. Options flow mirrors same schema.
+- Config flow (via `config_flow.py`) exposes base URL and update interval (1–720 minutes). Options flow mirrors the same schema.
 - Default base URL: `https://raw.githubusercontent.com/vividfog/nordpool-predict-fi/main/deploy`.
 - Update interval stored as `timedelta` in runtime config; options override entry data.
 
@@ -66,7 +66,7 @@
 
 ## Common Tasks for Agents
 - Adding platforms: update `const.PLATFORMS`, create `<platform>.py`, register entity classes using coordinator state.
-- Modifying data fetch: adjust `_fetch_json` or `_safe_fetch_optional`; ensure async + exception handling produce `UpdateFailed`.
+- Modifying data fetch: adjust `_fetch_json` or `_safe_fetch_artifact`; ensure async + exception handling produce `UpdateFailed`.
 - Extending attributes: edit sensor property methods; tests should assert attribute presence.
 - Changing prediction logic: update coordinator calculations; keep tests in `tests/test_coordinator.py` aligned.
 - Document UI changes in both `README.md` and `AGENTS.md`; reference card YAML when altering forecast attributes to avoid breaking dashboards.

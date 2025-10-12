@@ -8,18 +8,7 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.typing import ConfigType
 
-from .const import (
-    CONF_BASE_URL,
-    CONF_INCLUDE_WINDPOWER,
-    CONF_UPDATE_INTERVAL,
-    DATA_COORDINATOR,
-    DATA_UNSUB_LISTENER,
-    DEFAULT_BASE_URL,
-    DEFAULT_UPDATE_INTERVAL,
-    DEFAULT_UPDATE_INTERVAL_MINUTES,
-    DOMAIN,
-    PLATFORMS,
-)
+from .const import CONF_BASE_URL, CONF_UPDATE_INTERVAL, DATA_COORDINATOR, DATA_UNSUB_LISTENER, DEFAULT_BASE_URL, DEFAULT_UPDATE_INTERVAL, DEFAULT_UPDATE_INTERVAL_MINUTES, DOMAIN, PLATFORMS
 from .coordinator import NordpoolPredictCoordinator
 
 type NordpoolConfigEntry = ConfigEntry
@@ -38,7 +27,6 @@ async def async_setup_entry(hass: HomeAssistant, entry: NordpoolConfigEntry) -> 
         hass=hass,
         entry_id=entry.entry_id,
         base_url=runtime_config[CONF_BASE_URL],
-        include_windpower=runtime_config[CONF_INCLUDE_WINDPOWER],
         update_interval=runtime_config[CONF_UPDATE_INTERVAL],
     )
 
@@ -71,7 +59,6 @@ def _runtime_entry_config(entry: NordpoolConfigEntry) -> Mapping[str, Any]:
     result: dict[str, Any] = {
         CONF_BASE_URL: DEFAULT_BASE_URL,
         CONF_UPDATE_INTERVAL: DEFAULT_UPDATE_INTERVAL,
-        CONF_INCLUDE_WINDPOWER: True,
     }
 
     def _normalize(data: Mapping[str, Any]) -> None:
@@ -80,8 +67,6 @@ def _runtime_entry_config(entry: NordpoolConfigEntry) -> Mapping[str, Any]:
             if base_url.endswith("/"):
                 base_url = base_url[:-1]
             result[CONF_BASE_URL] = base_url or DEFAULT_BASE_URL
-        if CONF_INCLUDE_WINDPOWER in data:
-            result[CONF_INCLUDE_WINDPOWER] = bool(data[CONF_INCLUDE_WINDPOWER])
         if CONF_UPDATE_INTERVAL in data:
             minutes = data[CONF_UPDATE_INTERVAL]
             if isinstance(minutes, timedelta):

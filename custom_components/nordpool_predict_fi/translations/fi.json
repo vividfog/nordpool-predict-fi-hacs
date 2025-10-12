@@ -7,17 +7,15 @@
         "description": "Näytä Nordpool Predict FI -ennusteet Home Assistantissa.",
         "data": {
           "base_url": "Osoite",
-          "update_interval": "Päivitysväli (minuuttia)",
-          "include_windpower": "Lataa tuulivoimatiedot"
+          "update_interval": "Päivitysväli (minuuttia)"
         }
       },
       "reconfigure": {
         "title": "Nordpool Predict FI",
-        "description": "Tarkista yhteysasetukset tai valinnaiset aineistot.",
+        "description": "Tarkista yhteysasetukset ja päivitä asetukset.",
         "data": {
           "base_url": "Osoite",
-          "update_interval": "Päivitysväli (minuuttia)",
-          "include_windpower": "Lataa tuulivoimatiedot"
+          "update_interval": "Päivitysväli (minuuttia)"
         }
       }
     },
@@ -29,11 +27,10 @@
     "step": {
       "init": {
         "title": "Nordpool Predict FI -asetukset",
-        "description": "Muuta päivitysväliä ja valinnaisia aineistoja.",
+        "description": "Muuta päivitysväliä tai osoitetta.",
         "data": {
           "base_url": "Osoite",
-          "update_interval": "Päivitysväli (minuuttia)",
-          "include_windpower": "Lataa tuulivoimatiedot"
+          "update_interval": "Päivitysväli (minuuttia)"
         }
       }
     },

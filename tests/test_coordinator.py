@@ -96,7 +96,6 @@ async def test_coordinator_parses_series(hass, enable_custom_integrations, monke
         hass=hass,
         entry_id="test",
         base_url=base_url,
-        include_windpower=True,
         update_interval=timedelta(minutes=15),
     )
     monkeypatch.setattr(coordinator, "_current_time", lambda: now)
@@ -163,6 +162,7 @@ async def test_coordinator_merges_realized_and_forecast(
     session = _MockSession(
         {
             f"{base_url}/prediction.json": forecast,
+            f"{base_url}/windpower.json": [],
             f"{base_url}/narration.md": "Example",
             f"{base_url}/narration_en.md": "Example EN",
             "sahkotin": realized_csv,
@@ -178,7 +178,6 @@ async def test_coordinator_merges_realized_and_forecast(
         hass=hass,
         entry_id="test",
         base_url=base_url,
-        include_windpower=False,
         update_interval=timedelta(minutes=15),
     )
     monkeypatch.setattr(coordinator, "_current_time", lambda: now)
@@ -210,14 +209,13 @@ async def test_coordinator_merges_realized_and_forecast(
     ),
     ids=["file_not_found", "update_failed", "client_error", "value_error", "timeout"],
 )
-async def test_safe_fetch_optional_swallows_errors(
+async def test_safe_fetch_artifact_swallows_errors(
     hass, enable_custom_integrations, monkeypatch, raised_exception
 ) -> None:
     coordinator = NordpoolPredictCoordinator(
         hass=hass,
         entry_id="test",
         base_url="https://example.com/deploy",
-        include_windpower=True,
         update_interval=timedelta(minutes=15),
     )
 
@@ -226,7 +224,7 @@ async def test_safe_fetch_optional_swallows_errors(
 
     monkeypatch.setattr(coordinator, "_fetch_json", _failing_fetch)
 
-    result = await coordinator._safe_fetch_optional(None, "windpower.json")
+    result = await coordinator._safe_fetch_artifact(None, "windpower.json")
     assert result is None
 
 
@@ -241,14 +239,13 @@ async def test_safe_fetch_optional_swallows_errors(
     ),
     ids=["file_not_found", "update_failed", "client_error", "timeout"],
 )
-async def test_safe_fetch_optional_text_swallows_errors(
+async def test_safe_fetch_artifact_text_swallows_errors(
     hass, enable_custom_integrations, monkeypatch, raised_exception
 ) -> None:
     coordinator = NordpoolPredictCoordinator(
         hass=hass,
         entry_id="test",
         base_url="https://example.com/deploy",
-        include_windpower=True,
         update_interval=timedelta(minutes=15),
     )
 
@@ -257,7 +254,7 @@ async def test_safe_fetch_optional_text_swallows_errors(
 
     monkeypatch.setattr(coordinator, "_fetch_text", _failing_fetch)
 
-    result = await coordinator._safe_fetch_optional_text(None, "narration.md")
+    result = await coordinator._safe_fetch_artifact_text(None, "narration.md")
     assert result is None
 
 
@@ -278,7 +275,6 @@ async def test_safe_fetch_sahkotin_series_swallows_errors(
         hass=hass,
         entry_id="test",
         base_url="https://example.com/deploy",
-        include_windpower=True,
         update_interval=timedelta(minutes=15),
     )
 
@@ -303,7 +299,6 @@ async def test_fetch_json_invalid_payload_raises_update_failed(
         hass=hass,
         entry_id="test",
         base_url="https://example.com/deploy",
-        include_windpower=True,
         update_interval=timedelta(minutes=15),
     )
 
@@ -333,12 +328,11 @@ async def test_fetch_json_invalid_payload_raises_update_failed(
         await coordinator._fetch_json(session, "prediction.json")
 
 
-def _coordinator(hass, include_windpower: bool = True) -> NordpoolPredictCoordinator:
+def _coordinator(hass) -> NordpoolPredictCoordinator:
     return NordpoolPredictCoordinator(
         hass=hass,
         entry_id="test",
         base_url="https://example.com/deploy",
-        include_windpower=include_windpower,
         update_interval=timedelta(minutes=15),
     )
 

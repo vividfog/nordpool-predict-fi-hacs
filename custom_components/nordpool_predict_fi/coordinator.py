@@ -15,13 +15,7 @@ from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
-from .const import (
-    CHEAPEST_WINDOW_HOURS,
-    CONF_INCLUDE_WINDPOWER,
-    CONF_UPDATE_INTERVAL,
-    DEFAULT_BASE_URL,
-    SAHKOTIN_BASE_URL,
-)
+from .const import CHEAPEST_WINDOW_HOURS, CONF_UPDATE_INTERVAL, DEFAULT_BASE_URL, SAHKOTIN_BASE_URL
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -55,7 +49,6 @@ class NordpoolPredictCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         hass: HomeAssistant,
         entry_id: str,
         base_url: str,
-        include_windpower: bool,
         update_interval,
     ) -> None:
         super().__init__(
@@ -66,16 +59,11 @@ class NordpoolPredictCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         )
         self.entry_id = entry_id
         self._base_url = base_url or DEFAULT_BASE_URL
-        self._include_windpower = include_windpower
         self._helsinki_tz: tzinfo | None = None
 
     @property
     def base_url(self) -> str:
         return self._base_url
-
-    @property
-    def include_windpower(self) -> bool:
-        return self._include_windpower
 
     async def _async_update_data(self) -> dict[str, Any]:
         session = async_get_clientsession(self.hass)
@@ -107,10 +95,10 @@ class NordpoolPredictCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             self._safe_fetch_sahkotin_series(session, sahkotin_start, sahkotin_end)
         )
         narration_fi_task = asyncio.create_task(
-            self._safe_fetch_optional_text(session, "narration.md")
+            self._safe_fetch_artifact_text(session, "narration.md")
         )
         narration_en_task = asyncio.create_task(
-            self._safe_fetch_optional_text(session, "narration_en.md")
+            self._safe_fetch_artifact_text(session, "narration_en.md")
         )
 
         realized_series = await sahkotin_task
@@ -148,53 +136,51 @@ class NordpoolPredictCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             },
             "meta": {
                 "base_url": self._base_url,
-                CONF_INCLUDE_WINDPOWER: self._include_windpower,
                 CONF_UPDATE_INTERVAL: self.update_interval,
             },
         }
 
-        if self._include_windpower:
-            wind_rows = await self._safe_fetch_optional(session, "windpower.json")
-            if wind_rows:
-                wind_series = self._series_from_rows(wind_rows)
-                # Filter wind data to show from today midnight onwards
-                wind_from_today = [point for point in wind_series if point.datetime >= data_cutoff]
-                wind_current = wind_from_today[0] if wind_from_today else None
-                data["windpower"] = {
-                    "series": wind_from_today,
-                    "current": wind_current,
-                }
+        wind_rows = await self._safe_fetch_artifact(session, "windpower.json")
+        if wind_rows:
+            wind_series = self._series_from_rows(wind_rows)
+            # Filter wind data to show from today midnight onwards
+            wind_from_today = [point for point in wind_series if point.datetime >= data_cutoff]
+            wind_current = wind_from_today[0] if wind_from_today else None
+            data["windpower"] = {
+                "series": wind_from_today,
+                "current": wind_current,
+            }
 
         return data
 
-    async def _safe_fetch_optional(self, session, suffix: str) -> list[Any] | None:
+    async def _safe_fetch_artifact(self, session, suffix: str) -> list[Any] | None:
         try:
             return await self._fetch_json(session, suffix)
         except FileNotFoundError:
-            _LOGGER.debug("Optional artifact %s not present at %s", suffix, self._compose_url(suffix))
+            _LOGGER.debug("Artifact %s not present at %s", suffix, self._compose_url(suffix))
             return None
         except UpdateFailed as err:
-            _LOGGER.warning("Could not refresh optional artifact %s: %s", suffix, err)
+            _LOGGER.warning("Could not refresh artifact %s: %s", suffix, err)
         except ClientError as err:
-            _LOGGER.warning("Network error fetching optional artifact %s: %s", suffix, err)
+            _LOGGER.warning("Network error fetching artifact %s: %s", suffix, err)
         except (ContentTypeError, ValueError) as err:
-            _LOGGER.warning("Invalid JSON for optional artifact %s: %s", suffix, err)
+            _LOGGER.warning("Invalid JSON for artifact %s: %s", suffix, err)
         except asyncio.TimeoutError:
-            _LOGGER.warning("Timeout reaching optional artifact %s", suffix)
+            _LOGGER.warning("Timeout reaching artifact %s", suffix)
         return None
 
-    async def _safe_fetch_optional_text(self, session, suffix: str) -> str | None:
+    async def _safe_fetch_artifact_text(self, session, suffix: str) -> str | None:
         try:
             return await self._fetch_text(session, suffix)
         except FileNotFoundError:
-            _LOGGER.debug("Optional artifact %s not present at %s", suffix, self._compose_url(suffix))
+            _LOGGER.debug("Artifact %s not present at %s", suffix, self._compose_url(suffix))
             return None
         except UpdateFailed as err:
-            _LOGGER.warning("Could not refresh optional artifact %s: %s", suffix, err)
+            _LOGGER.warning("Could not refresh artifact %s: %s", suffix, err)
         except ClientError as err:
-            _LOGGER.warning("Network error fetching optional artifact %s: %s", suffix, err)
+            _LOGGER.warning("Network error fetching artifact %s: %s", suffix, err)
         except asyncio.TimeoutError:
-            _LOGGER.warning("Timeout reaching optional artifact %s", suffix)
+            _LOGGER.warning("Timeout reaching artifact %s", suffix)
         return None
 
     async def _safe_fetch_sahkotin_series(
