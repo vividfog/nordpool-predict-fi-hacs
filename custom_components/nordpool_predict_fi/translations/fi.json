@@ -44,10 +44,10 @@
   "entity": {
     "sensor": {
       "nordpool_predict_fi__price": {
-        "name": "Tuleva hinta"
+        "name": "Hinta"
       },
       "nordpool_predict_fi__windpower": {
-        "name": "Tuleva tuulivoima"
+        "name": "Tuulivoima"
       },
       "nordpool_predict_fi__cheapest_3h": {
         "name": "Edullisin 3h hintajakso"

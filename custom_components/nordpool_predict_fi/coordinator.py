@@ -41,8 +41,6 @@ class PriceWindow:
     points: list[SeriesPoint]
 
 
-HELSINKI_MARKET_RELEASE = time(14, 0)
-PREDICTION_START_HOUR = time(1, 0)
 HELSINKI_TIMEZONE_NAME = "Europe/Helsinki"
 
 
@@ -84,35 +82,21 @@ class NordpoolPredictCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         now = self._current_time()
         helsinki_tz = self._get_helsinki_timezone()
         helsinki_now = now.astimezone(helsinki_tz)
-        release_time = helsinki_now.replace(
-            hour=HELSINKI_MARKET_RELEASE.hour,
-            minute=HELSINKI_MARKET_RELEASE.minute,
-            second=0,
-            microsecond=0,
-        )
-        offset_days = 1 if helsinki_now < release_time else 2
-        prediction_start_date = helsinki_now.date() + timedelta(days=offset_days)
-        prediction_start_helsinki = datetime.combine(
-            prediction_start_date,
-            PREDICTION_START_HOUR,
-            tzinfo=helsinki_tz,
-        )
-        prediction_cutoff = prediction_start_helsinki.astimezone(timezone.utc)
+        
+        # Data cutoff: show all data from today midnight Helsinki onwards
+        today_midnight_helsinki = helsinki_now.replace(hour=0, minute=0, second=0, microsecond=0)
+        data_cutoff = today_midnight_helsinki.astimezone(timezone.utc)
 
         try:
             prediction_rows = await self._fetch_json(session, "prediction.json")
         except FileNotFoundError as err:
             raise UpdateFailed(f"prediction.json missing at {err}") from err
         forecast_series = self._series_from_rows(prediction_rows)
-
-        prediction_points = [
-            point for point in forecast_series if point.datetime >= prediction_cutoff
+        
+        # Filter forecast to show from today midnight onwards
+        forecast_from_today = [
+            point for point in forecast_series if point.datetime >= data_cutoff
         ]
-        current_point = prediction_points[0] if prediction_points else None
-        cheapest_windows = {
-            hours: self._find_cheapest_window(prediction_points, hours)
-            for hours in CHEAPEST_WINDOW_HOURS
-        }
 
         sahkotin_start_helsinki = helsinki_now.replace(hour=0, minute=0, second=0, microsecond=0)
         sahkotin_start = sahkotin_start_helsinki.astimezone(timezone.utc)
@@ -132,7 +116,23 @@ class NordpoolPredictCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         realized_series = await sahkotin_task
         narration_fi, narration_en = await asyncio.gather(narration_fi_task, narration_en_task)
 
-        merged_price_series = self._merge_price_series(realized_series, forecast_series)
+        merged_price_series = self._merge_price_series(realized_series, forecast_from_today)
+        
+        # Find current point from merged series
+        current_point = None
+        for point in merged_price_series:
+            if point.datetime <= now:
+                current_point = point
+            else:
+                break
+        if current_point is None and merged_price_series:
+            current_point = merged_price_series[0]
+        
+        # Calculate cheapest windows using the full merged series
+        cheapest_windows = {
+            hours: self._find_cheapest_window(merged_price_series, hours)
+            for hours in CHEAPEST_WINDOW_HOURS
+        }
 
         data: dict[str, Any] = {
             "price": {
@@ -157,10 +157,11 @@ class NordpoolPredictCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             wind_rows = await self._safe_fetch_optional(session, "windpower.json")
             if wind_rows:
                 wind_series = self._series_from_rows(wind_rows)
-                prediction_wind = [point for point in wind_series if point.datetime >= prediction_cutoff]
-                wind_current = prediction_wind[0] if prediction_wind else None
+                # Filter wind data to show from today midnight onwards
+                wind_from_today = [point for point in wind_series if point.datetime >= data_cutoff]
+                wind_current = wind_from_today[0] if wind_from_today else None
                 data["windpower"] = {
-                    "series": prediction_wind,
+                    "series": wind_from_today,
                     "current": wind_current,
                 }
 

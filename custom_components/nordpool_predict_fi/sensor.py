@@ -137,7 +137,7 @@ class NordpoolPriceSensor(NordpoolBaseSensor):
     def __init__(self, coordinator: NordpoolPredictCoordinator, entry: ConfigEntry) -> None:
         super().__init__(coordinator, entry)
         self._attr_unique_id = f"{entry.entry_id}_price"
-        self._attr_name = "Upcoming Price"
+        self._attr_name = "Price"
 
     @property
     def native_value(self) -> float | None:
@@ -151,12 +151,10 @@ class NordpoolPriceSensor(NordpoolBaseSensor):
             return None
 
         forecast = self._build_forecast_attributes(data.get("forecast", []), decimals=1)
-        current = self._series_point("current")
         result = {
             ATTR_FORECAST: forecast,
             ATTR_RAW_SOURCE: self.coordinator.base_url,
         }
-        result[ATTR_NEXT_VALID_FROM] = current.datetime.isoformat() if current else None
         return result
 
     def _series_point(self, key: str) -> SeriesPoint | None:
@@ -254,7 +252,7 @@ class NordpoolWindpowerSensor(NordpoolBaseSensor):
     def __init__(self, coordinator: NordpoolPredictCoordinator, entry: ConfigEntry) -> None:
         super().__init__(coordinator, entry)
         self._attr_unique_id = f"{entry.entry_id}_windpower"
-        self._attr_name = "Upcoming Wind Power"
+        self._attr_name = "Wind Power"
 
     @property
     def native_value(self) -> float | None:
@@ -270,11 +268,9 @@ class NordpoolWindpowerSensor(NordpoolBaseSensor):
         if not section:
             return None
         series: list[SeriesPoint] = section.get("series", [])
-        current = section.get("current")
         return {
             ATTR_WIND_FORECAST: self._build_forecast_attributes(series, decimals=0),
             ATTR_RAW_SOURCE: self.coordinator.base_url,
-            ATTR_NEXT_VALID_FROM: current.datetime.isoformat() if isinstance(current, SeriesPoint) else None,
         }
 
     def _section(self) -> Mapping[str, Any] | None:

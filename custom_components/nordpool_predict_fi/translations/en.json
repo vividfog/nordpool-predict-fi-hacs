@@ -44,10 +44,10 @@
   "entity": {
     "sensor": {
       "nordpool_predict_fi__price": {
-        "name": "Upcoming Price"
+        "name": "Price"
       },
       "nordpool_predict_fi__windpower": {
-        "name": "Upcoming Wind Power"
+        "name": "Wind Power"
       },
       "nordpool_predict_fi__cheapest_3h": {
         "name": "Cheapest 3h Price Window"

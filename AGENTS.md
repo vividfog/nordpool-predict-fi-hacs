@@ -18,21 +18,23 @@
 ## Coordinator Facts
 - `_async_update_data`:
   - Resolves timezone via `ZoneInfo("Europe/Helsinki")`; raises `UpdateFailed` if tzdata missing.
-  - Uses Helsinki local time to decide prediction start: before 14:00 → tomorrow 01:00; after → day after tomorrow 01:00 (both local). All timestamps stored UTC.
-  - Filters price series ≥ cutoff and retains a reference to the next effective timestamp.
-  - Pulls Sähkötin CSV for the current Helsinki day and merges realized rows ahead of forecast points.
-- Wind optional toggled by config flag.
-- Cheapest rolling windows (3h/6h/12h) are derived from contiguous hourly points and cached for sensor use.
+  - Calculates `data_cutoff`: today midnight Helsinki time for showing all available data from beginning of today onwards.
+  - Filters price and wind data ≥ `data_cutoff` to show aligned timelines.
+  - Pulls Sähkötin CSV for the current Helsinki day and merges realized rows with forecast data from today onwards.
+  - Current point found from merged series (latest point ≤ now).
+  - Cheapest windows (3h/6h/12h) calculated across entire merged series (realized + forecast).
+- Wind optional toggled by config flag; filtered same way as price (from today midnight).
+- Cheapest rolling windows (3h/6h/12h) are derived from contiguous hourly points across full merged data and cached for sensor use.
 - Networking via `aiohttp` session + `async_timeout`.
 
 ## Entity Contracts
 - Price sensors:
-  - `sensor.nordpool_predict_fi_upcoming_price` → attributes `forecast`, `next_valid_from`, `raw_source`.
+  - `sensor.nordpool_predict_fi_price` → attributes `forecast`, `raw_source`.
   - `sensor.nordpool_predict_fi_price_now` → attributes `timestamp`, `raw_source`.
 - Wind sensors (when enabled):
-  - `sensor.nordpool_predict_fi_upcoming_wind_power` → attributes `windpower_forecast`, `next_valid_from`, `raw_source`.
+  - `sensor.nordpool_predict_fi_windpower` → attributes `windpower_forecast`, `raw_source`.
   - `sensor.nordpool_predict_fi_windpower_now` → attributes `timestamp`, `raw_source`.
-- Cheapest price window sensors (`sensor.nordpool_predict_fi_cheapest_3h_price_window`, `..._6h_...`, `..._12h_...`) expose the lowest rolling averages along with `window_start`, `window_end`, `window_points`, and `raw_source` attributes.
+- Cheapest price window sensors (`sensor.nordpool_predict_fi_cheapest_3h_price_window`, `..._6h_...`, `..._12h_...`) expose lowest rolling averages across entire data timeline along with `window_start`, `window_end`, `window_points`, and `raw_source` attributes.
 
 ## Configuration & Options
 - Config flow (via `config_flow.py`) exposes base URL, update interval (1–720 minutes), optional feeds. Options flow mirrors same schema.

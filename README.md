@@ -2,9 +2,9 @@
 
 Nordpool Predict FI is a Home Assistant integration that mirrors the forecasts published by [`vividfog/nordpool-predict-fi`](https://github.com/vividfog/nordpool-predict-fi). It reads the hourly price feed (`prediction.json`) and, if enabled, the wind forecast (`windpower.json`), then exposes the data as sensors.
 
-Nordpool posts the next day’s Finnish spot prices at 14:00 Helsinki time. Until that happens the integration only shows yet-to-come hours: before 14:00 you see tomorrow from 01:00 onward, and after 14:00 the view jumps to the day after tomorrow. The wind forecast is trimmed the same way so both series stay aligned.
+The integration shows all available data from today (Helsinki time) onwards. Price data combines Sähkötin realized prices with forecast data, transitioning from actual to predicted values. Wind power data similarly shows the complete timeline from today's start.
 
-The sample YAML cards ship with Nordpool’s realised prices from `sensor.nordpool_kwh_fi_eur_3_10_0255`; change the sensor ID to match your setup.
+Cheapest windows work across the entire data timeline, using both realized and forecast data to find the most economical periods throughout the week.
 
 ---
 
@@ -12,11 +12,11 @@ The sample YAML cards ship with Nordpool’s realised prices from `sensor.nordpo
 
 | Entity | Type | Description |
 | --- | --- | --- |
-| `sensor.nordpool_predict_fi_upcoming_price` | Sensor | Continuous hourly price timeline (`c/kWh`) built from Sähkötin realizations + Nordpool Predict forecasts, with `next_valid_from` for the next market update. |
+| `sensor.nordpool_predict_fi_price` | Sensor | Continuous hourly price timeline (`c/kWh`) built from Sähkötin realizations + Nordpool Predict forecasts. |
 | `sensor.nordpool_predict_fi_price_now` | Sensor | Latest price value at or before the current hour, plus the timestamp it originated from. |
-| `sensor.nordpool_predict_fi_upcoming_wind_power` | Optional sensor | Upcoming wind production forecast (MW) with the forecast series and `next_valid_from` attribute. |
-| `sensor.nordpool_predict_fi_windpower_now` | Optional sensor | Wind power value for the next hour (same as `current` in the feed) with its timestamp. |
-| `sensor.nordpool_predict_fi_cheapest_3h_price_window` | Sensor | Lowest average of any 3-hour window ahead; attributes expose `window_start`, `window_end`, `window_points`, and `raw_source`. |
+| `sensor.nordpool_predict_fi_windpower` | Optional sensor | Wind production forecast (MW) with the complete forecast series. |
+| `sensor.nordpool_predict_fi_windpower_now` | Optional sensor | Wind power value for the current hour with its timestamp. |
+| `sensor.nordpool_predict_fi_cheapest_3h_price_window` | Sensor | Lowest average of any 3-hour window in the data; attributes expose `window_start`, `window_end`, `window_points`, and `raw_source`. |
 | `sensor.nordpool_predict_fi_cheapest_6h_price_window` | Sensor | Same as above for 6-hour windows, useful for longer running appliances. |
 | `sensor.nordpool_predict_fi_cheapest_12h_price_window` | Sensor | Tracks the cheapest 12-hour block for day-level planning. |
 | `sensor.nordpool_predict_fi_narration_fi` | Sensor | Finnish narration summary/ingress as the sensor state; the full Markdown lives in `content` with `source_url` pointing at the raw file. |
@@ -24,7 +24,7 @@ The sample YAML cards ship with Nordpool’s realised prices from `sensor.nordpo
 
 All timestamps are UTC ISO8601 strings; Home Assistant handles local conversion based on your instance settings.
 
-Price data is provided courtesy of [Sähkötin](https://sahkotin.fi/hours).
+Realized price data is provided courtesy of [Sähkötin](https://sahkotin.fi/hours).
 
 ### Showing the narration
 
@@ -64,10 +64,10 @@ The host needs tzdata with the `Europe/Helsinki` zone. If that package is missin
 
 ## Working With the Data
 
-- Forecast rows are treated as hourly points sorted by time.
-- Sähkötin CSV data for the current Helsinki day is merged with Nordpool Predict forecasts, so the `forecast` attribute already contains realized + predicted prices in one timeline.
-- Model-only features (cheapest windows, `next_valid_from`) still respect the 14:00 Nordpool market release.
-- Rolling cheapest windows (3h, 6h, 12h) are calculated in the coordinator and exposed both as sensor states (average price) and attributes for automations.
+- All data (price forecasts, wind power, and realized prices) is shown from beginning of today (Helsinki time) onwards.
+- Sähkötin CSV data for the current Helsinki day is merged with Nordpool Predict FI forecasts, so the `forecast` attribute already contains realized + predicted prices in one timeline.
+- Cheapest windows (3h, 6h, 12h) work across the entire available data, using both realized and forecast prices to find the most economical periods throughout the week.
+- All cheapest window calculations are done in the coordinator and exposed both as sensor states (average price) and attributes for automations.
 
 ## Data Sources
 
@@ -80,7 +80,7 @@ Copy the ready-made ApexCharts cards from the repository root:
 
 ![Screenshot of forecast vs. market price card in ApexCharts](docs/npf_card_price.png)
 
-- [`npf_card_price.yaml`](npf_card_price.yaml) – combines the price sensor forecast with wind power to highlight how production correlates with price. Requires both `sensor.nordpool_predict_fi_upcoming_price` and `sensor.nordpool_predict_fi_upcoming_wind_power`.
+- [`npf_card_price.yaml`](npf_card_price.yaml) – combines the price sensor forecast with wind power to highlight how production correlates with price. Requires both `sensor.nordpool_predict_fi_price` and `sensor.nordpool_predict_fi_windpower`.
 - [`npf_card_wind.yaml`](npf_card_wind.yaml) – focuses on wind output with price as supporting data over a week.
 
 ![Screenshot of combined price and wind power card in ApexCharts](docs/npf_card_wind.png)

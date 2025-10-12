@@ -106,31 +106,35 @@ async def test_coordinator_parses_series(hass, enable_custom_integrations, monke
 
     data = coordinator.data
     price_section = data["price"]
-    assert price_section["current"].value == pytest.approx(23.0)
+    # Current point is now found from merged series (realized + forecast)
+    # At 11:00 UTC (now), the realized price is 5.0 + 11 = 16.0
+    assert price_section["current"].value == pytest.approx(16.0)
     assert price_section["forecast"][0].datetime == datetime(2024, 1, 1, 0, 0, tzinfo=timezone.utc)
     assert price_section["forecast"][0].value == pytest.approx(5.0)
     assert price_section["forecast"][12].value == pytest.approx(17.0)
     assert price_section["forecast"][13].value == pytest.approx(13.0)
     assert len(price_section["forecast"]) == 72
+    # Cheapest windows now use merged series, so they start from realized data
     windows = price_section["cheapest_windows"]
     window_3h = windows[3]
     assert isinstance(window_3h, PriceWindow)
-    assert window_3h.start == datetime(2024, 1, 1, 23, 0, tzinfo=timezone.utc)
-    assert window_3h.end == datetime(2024, 1, 2, 2, 0, tzinfo=timezone.utc)
-    assert window_3h.average == pytest.approx(24.0)
+    assert window_3h.start == datetime(2024, 1, 1, 0, 0, tzinfo=timezone.utc)
+    assert window_3h.end == datetime(2024, 1, 1, 3, 0, tzinfo=timezone.utc)
+    assert window_3h.average == pytest.approx(6.0)
     assert len(window_3h.points) == 3
     window_6h = windows[6]
     assert isinstance(window_6h, PriceWindow)
-    assert window_6h.average == pytest.approx(25.5)
+    assert window_6h.average == pytest.approx(7.5)
     assert window_6h.end - window_6h.start == timedelta(hours=6)
     window_12h = windows[12]
     assert isinstance(window_12h, PriceWindow)
-    assert window_12h.average == pytest.approx(28.5)
+    assert window_12h.average == pytest.approx(10.5)
 
     wind_section = data["windpower"]
-    assert wind_section["series"][0].datetime == datetime(2024, 1, 1, 23, 0, tzinfo=timezone.utc)
-    assert wind_section["current"].value == pytest.approx(3200.0 + 23 * 5)
-    assert len(wind_section["series"]) == 97
+    # Wind data now starts from today midnight Helsinki (2023-12-31 22:00 UTC -> first available at 00:00 UTC)
+    assert wind_section["series"][0].datetime == datetime(2024, 1, 1, 0, 0, tzinfo=timezone.utc)
+    assert wind_section["current"].value == pytest.approx(3200.0)
+    assert len(wind_section["series"]) == 120
     narration = data["narration"]
     assert narration["fi"]["content"] == "*Lyhyt tiivistelmä ensimmäiselle riville.*  \nLisärivi."
     assert narration["fi"]["summary"] == "Lyhyt tiivistelmä ensimmäiselle riville."
@@ -139,7 +143,7 @@ async def test_coordinator_parses_series(hass, enable_custom_integrations, monke
 
 
 @pytest.mark.asyncio
-async def test_coordinator_filters_day_after_tomorrow_after_release(
+async def test_coordinator_merges_realized_and_forecast(
     hass, enable_custom_integrations, monkeypatch
 ) -> None:
     base_url = "https://example.com/deploy"
@@ -182,11 +186,17 @@ async def test_coordinator_filters_day_after_tomorrow_after_release(
     data = await coordinator._async_update_data()
 
     price_section = data["price"]
+    # Merged series starts from today midnight and uses realized data
     assert price_section["forecast"][0].datetime == datetime(2024, 1, 1, 0, 0, tzinfo=timezone.utc)
+    assert price_section["forecast"][0].value == pytest.approx(10.0)  # Realized price
     assert price_section["forecast"][4].datetime == datetime(2024, 1, 1, 4, 0, tzinfo=timezone.utc)
+    assert price_section["forecast"][4].value == pytest.approx(14.0)  # Last realized
     assert price_section["forecast"][5].datetime == datetime(2024, 1, 1, 5, 0, tzinfo=timezone.utc)
+    assert price_section["forecast"][5].value == pytest.approx(5.0)  # Forecast starts
     assert price_section["forecast"][-1].datetime == datetime(2024, 1, 4, 23, 0, tzinfo=timezone.utc)
-    assert price_section["current"].value == pytest.approx(47.0)
+    # Current point is at or before now (15:00 Helsinki = 13:00 UTC) from merged series
+    # At 13:00 UTC, the forecast value is 13.0
+    assert price_section["current"].value == pytest.approx(13.0)
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize(

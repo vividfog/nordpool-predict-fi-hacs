@@ -44,10 +44,10 @@
   "entity": {
     "sensor": {
       "nordpool_predict_fi__price": {
-        "name": "Kommande pris"
+        "name": "Pris"
       },
       "nordpool_predict_fi__windpower": {
-        "name": "Kommande vindkraft"
+        "name": "Vindkraft"
       },
       "nordpool_predict_fi__cheapest_3h": {
         "name": "Billigaste 3h prisfönster"

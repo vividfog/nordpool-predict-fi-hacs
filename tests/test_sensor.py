@@ -125,7 +125,7 @@ async def test_async_setup_entry_registers_entities(hass, enable_custom_integrat
     assert price.native_value == pytest.approx(12.3)
     assert attrs[ATTR_FORECAST][0]["value"] == pytest.approx(12.3)
     assert attrs[ATTR_RAW_SOURCE] == "https://example.com/deploy"
-    assert attrs[ATTR_NEXT_VALID_FROM] == forecast_series[0].datetime.isoformat()
+    assert ATTR_NEXT_VALID_FROM not in attrs
 
     price_now = next(entity for entity in added if isinstance(entity, sensor.NordpoolPriceNowSensor))
     price_now_attrs = price_now.extra_state_attributes
@@ -139,7 +139,7 @@ async def test_async_setup_entry_registers_entities(hass, enable_custom_integrat
     assert len(wind_attrs[ATTR_WIND_FORECAST]) == 2
     assert wind_attrs[ATTR_WIND_FORECAST][0]["value"] == 3500
     assert wind_attrs[ATTR_RAW_SOURCE] == "https://example.com/deploy"
-    assert wind_attrs[ATTR_NEXT_VALID_FROM] == forecast_series[0].datetime.isoformat()
+    assert ATTR_NEXT_VALID_FROM not in wind_attrs
 
     wind_now = next(entity for entity in added if isinstance(entity, sensor.NordpoolWindpowerNowSensor))
     wind_now_attrs = wind_now.extra_state_attributes
@@ -261,7 +261,7 @@ async def test_async_setup_entry_without_optional_feeds(hass, enable_custom_inte
     assert sum(isinstance(entity, sensor.NordpoolPriceSensor) for entity in added) == 1
     assert sum(isinstance(entity, sensor.NordpoolPriceNowSensor) for entity in added) == 1
     attrs = next(entity for entity in added if isinstance(entity, sensor.NordpoolPriceSensor)).extra_state_attributes
-    assert attrs[ATTR_NEXT_VALID_FROM] == _series_point(1, 5.0, now).datetime.isoformat()
+    assert ATTR_NEXT_VALID_FROM not in attrs
 
     price_now = next(entity for entity in added if isinstance(entity, sensor.NordpoolPriceNowSensor))
     price_now_attrs = price_now.extra_state_attributes
