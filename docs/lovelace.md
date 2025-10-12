@@ -85,7 +85,7 @@ series:
     yaxis_id: wind
     float_precision: 0
     color: skyblue
-    opacity: 0.1
+    opacity: 0.2
     extend_to: now
     stroke_width: 0
     curve: stepline
