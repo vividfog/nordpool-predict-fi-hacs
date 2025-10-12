@@ -1,10 +1,10 @@
 # Nordpool Predict FI – Home Assistant Integration
 
-Nordpool Predict FI is a Home Assistant integration that mirrors the forecasts published by [`vividfog/nordpool-predict-fi`](https://github.com/vividfog/nordpool-predict-fi). It reads the hourly price feed (`prediction.json`) and, if enabled, the wind forecast (`windpower.json`), then exposes the data as sensors.
+Nordpool Predict FI is a Home Assistant integration that displays the forecasts published by [`vividfog/nordpool-predict-fi`](https://github.com/vividfog/nordpool-predict-fi). It reads the hourly price feed (`prediction.json`) and the wind forecast (`windpower.json`), then exposes the data as sensors.
 
-The integration shows all available data from today (Helsinki time) onwards. Price data combines Sähkötin realized prices with forecast data, transitioning from actual to predicted values. Wind power data similarly shows the complete timeline from today's start.
+The integration shows all available data from today (Helsinki time) onwards. Price data combines [Sähkötin](https://sahkotin.fi/hours) realized prices with forecast data, transitioning from actual to predicted values. Wind power data is shown similarly.
 
-Cheapest windows work across the entire data timeline, using both realized and forecast data to find the most economical periods throughout the week.
+Cheapest windows work across the entire data timeline, using both realized and forecast data to find the most economical price windows throughout the week.
 
 ---
 
@@ -62,9 +62,8 @@ During setup (or later via *Configure*) you can tweak:
 
 - **Base URL** – defaults to `https://raw.githubusercontent.com/vividfog/nordpool-predict-fi/main/deploy`. Point it to another host if you mirror the files.
 - **Update interval** – polling frequency in minutes (1–720, default 30).
-- **Load wind power data** – toggles downloads of `windpower.json` and enables the wind sensor.
 
-The host needs tzdata with the `Europe/Helsinki` zone. If that package is missing the coordinator raises a clear error in the Home Assistant logs.
+The host needs tzdata with the `Europe/Helsinki` zone. If that package is missing the coordinator raises an error in the Home Assistant logs.
 
 ---
 
@@ -82,16 +81,15 @@ The host needs tzdata with the `Europe/Helsinki` zone. If that package is missin
 
 ## Dashboard Cards
 
-Copy the ready-made ApexCharts cards from the repository root:
+Paste the YAML into the Raw Configuration Editor of a Lovelace dashboard that has [ApexCharts Card](https://github.com/RomRider/apexcharts-card) installed via [HACS](https://www.hacs.xyz/docs/use/download/download/). The cards read the forecast attributes exported by the price and wind sensors.
+
+[`npf_card_price.yaml`](docs/npf_card_price.yaml) combines the price sensor forecast with wind power to highlight how production correlates with price:
 
 ![Screenshot of forecast vs. market price card in ApexCharts](docs/npf_card_price.png)
 
-- [`npf_card_price.yaml`](npf_card_price.yaml) – combines the price sensor forecast with wind power to highlight how production correlates with price. Requires both `sensor.nordpool_predict_fi_price` and `sensor.nordpool_predict_fi_windpower`.
-- [`npf_card_wind.yaml`](npf_card_wind.yaml) – focuses on wind output with price as supporting data over a week.
+[`npf_card_wind.yaml`](docs/npf_card_wind.yaml) – focuses on wind output with price as supporting data over a week:
 
 ![Screenshot of combined price and wind power card in ApexCharts](docs/npf_card_wind.png)
-
-Paste the YAML into the Raw Configuration Editor of a Lovelace dashboard that has [ApexCharts Card](https://github.com/RomRider/apexcharts-card) installed. Update the entity IDs if your sensors use different names. The cards read the forecast attributes exported by the price and wind sensors.
 
 ---
 
@@ -119,5 +117,5 @@ Paste the YAML into the Raw Configuration Editor of a Lovelace dashboard that ha
   ```
 - Coordinator tests mock network I/O; sensor tests validate entity wiring. Add tests alongside any new behaviour.
 - `scripts/dev_fetch.py` is a helper that downloads the JSON artifacts for local debugging (no Home Assistant required).
-
-The integration follows Home Assistant async patterns. Avoid blocking calls, keep changes in ASCII, and ensure new features are represented in both documentation and tests.
+- The integration follows Home Assistant async patterns. Avoid blocking calls, keep changes in ASCII, and ensure new features are represented in both documentation and tests.
+- `AGENTS.md` is provided for AI-assisted development.
