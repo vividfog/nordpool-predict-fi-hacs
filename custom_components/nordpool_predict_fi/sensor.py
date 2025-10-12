@@ -59,11 +59,15 @@ class NordpoolBaseSensor(CoordinatorEntity[NordpoolPredictCoordinator], SensorEn
             manufacturer="Nordpool Predict",
         )
 
-    def _build_forecast_attributes(self, series: list[SeriesPoint]) -> list[Mapping[str, Any]]:
+    def _build_forecast_attributes(
+        self,
+        series: list[SeriesPoint],
+        decimals: int | None = None,
+    ) -> list[Mapping[str, Any]]:
         return [
             {
                 "timestamp": point.datetime.isoformat(),
-                "value": point.value,
+                "value": self._rounded_value(point.value, decimals),
             }
             for point in series
         ]
@@ -87,6 +91,15 @@ class NordpoolBaseSensor(CoordinatorEntity[NordpoolPredictCoordinator], SensorEn
             return window
         return None
 
+    @staticmethod
+    def _rounded_value(value: float, decimals: int | None) -> float | int:
+        if decimals is None:
+            return value
+        rounded = round(value, decimals)
+        if decimals == 0:
+            return int(rounded)
+        return rounded
+
 
 class NordpoolPriceSensor(NordpoolBaseSensor):
     _attr_translation_key = "price"
@@ -102,7 +115,7 @@ class NordpoolPriceSensor(NordpoolBaseSensor):
     @property
     def native_value(self) -> float | None:
         current = self._series_point("current")
-        return current.value if current else None
+        return round(current.value, 1) if current else None
 
     @property
     def extra_state_attributes(self) -> Mapping[str, Any] | None:
@@ -110,7 +123,7 @@ class NordpoolPriceSensor(NordpoolBaseSensor):
         if not data:
             return None
 
-        forecast = self._build_forecast_attributes(data.get("forecast", []))
+        forecast = self._build_forecast_attributes(data.get("forecast", []), decimals=1)
         current = self._series_point("current")
         result = {
             ATTR_FORECAST: forecast,
@@ -144,7 +157,7 @@ class NordpoolCheapestWindowSensor(NordpoolBaseSensor):
     @property
     def native_value(self) -> float | None:
         window = self._cheapest_window(self._hours)
-        return window.average if window else None
+        return round(window.average, 1) if window else None
 
     @property
     def extra_state_attributes(self) -> Mapping[str, Any] | None:
@@ -156,7 +169,7 @@ class NordpoolCheapestWindowSensor(NordpoolBaseSensor):
         if window:
             attributes[ATTR_WINDOW_START] = window.start.isoformat()
             attributes[ATTR_WINDOW_END] = window.end.isoformat()
-            attributes[ATTR_WINDOW_POINTS] = self._build_forecast_attributes(window.points)
+            attributes[ATTR_WINDOW_POINTS] = self._build_forecast_attributes(window.points, decimals=1)
         else:
             attributes[ATTR_WINDOW_START] = None
             attributes[ATTR_WINDOW_END] = None
@@ -180,7 +193,7 @@ class NordpoolWindpowerSensor(NordpoolBaseSensor):
         section = self._section()
         current = section.get("current") if section else None
         if isinstance(current, SeriesPoint):
-            return current.value
+            return int(round(current.value))
         return None
 
     @property
@@ -191,7 +204,7 @@ class NordpoolWindpowerSensor(NordpoolBaseSensor):
         series: list[SeriesPoint] = section.get("series", [])
         current = section.get("current")
         return {
-            ATTR_WIND_FORECAST: self._build_forecast_attributes(series),
+            ATTR_WIND_FORECAST: self._build_forecast_attributes(series, decimals=0),
             ATTR_RAW_SOURCE: self.coordinator.base_url,
             ATTR_NEXT_VALID_FROM: current.datetime.isoformat() if isinstance(current, SeriesPoint) else None,
         }

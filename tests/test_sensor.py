@@ -99,8 +99,9 @@ async def test_async_setup_entry_registers_entities(hass, enable_custom_integrat
 
     wind = next(entity for entity in added if isinstance(entity, sensor.NordpoolWindpowerSensor))
     wind_attrs = wind.extra_state_attributes
-    assert wind.native_value == pytest.approx(3500.0)
+    assert wind.native_value == 3500
     assert len(wind_attrs[ATTR_WIND_FORECAST]) == 2
+    assert wind_attrs[ATTR_WIND_FORECAST][0]["value"] == 3500
     assert wind_attrs[ATTR_RAW_SOURCE] == "https://example.com/deploy"
     assert wind_attrs[ATTR_NEXT_VALID_FROM] == forecast_series[0].datetime.isoformat()
 
@@ -118,9 +119,9 @@ async def test_async_setup_entry_registers_entities(hass, enable_custom_integrat
     three_attrs = three_hour_sensor.extra_state_attributes
     expected_start = forecast_series[3].datetime
     expected_end = forecast_series[5].datetime + timedelta(hours=1)
-    expected_average = sum(values[3:6]) / 3
+    expected_average = round(sum(values[3:6]) / 3, 1)
 
-    assert three_hour_sensor.native_value == pytest.approx(expected_average)
+    assert three_hour_sensor.native_value == expected_average
     assert three_attrs[ATTR_RAW_SOURCE] == "https://example.com/deploy"
     assert three_attrs[ATTR_WINDOW_START] == expected_start.isoformat()
     assert three_attrs[ATTR_WINDOW_END] == expected_end.isoformat()
@@ -129,11 +130,11 @@ async def test_async_setup_entry_registers_entities(hass, enable_custom_integrat
     assert three_attrs[ATTR_WINDOW_POINTS][0]["value"] == pytest.approx(values[3])
 
     six_hour_sensor = by_duration[6]
-    assert six_hour_sensor.native_value == pytest.approx(sum(values[1:7]) / 6)
+    assert six_hour_sensor.native_value == round(sum(values[1:7]) / 6, 1)
     assert len(six_hour_sensor.extra_state_attributes[ATTR_WINDOW_POINTS]) == 6
 
     twelve_hour_sensor = by_duration[12]
-    assert twelve_hour_sensor.native_value == pytest.approx(sum(values) / len(values))
+    assert twelve_hour_sensor.native_value == round(sum(values) / len(values), 1)
     assert len(twelve_hour_sensor.extra_state_attributes[ATTR_WINDOW_POINTS]) == 12
 
 
