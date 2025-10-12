@@ -48,6 +48,15 @@
       },
       "nordpool_predict_fi__windpower": {
         "name": "Upcoming Wind Power"
+      },
+      "nordpool_predict_fi__cheapest_3h": {
+        "name": "Cheapest 3h Price Window"
+      },
+      "nordpool_predict_fi__cheapest_6h": {
+        "name": "Cheapest 6h Price Window"
+      },
+      "nordpool_predict_fi__cheapest_12h": {
+        "name": "Cheapest 12h Price Window"
       }
     }
   }

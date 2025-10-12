@@ -14,6 +14,9 @@ Nordpool Predict FI is a Home Assistant custom integration that mirrors the fore
 | --- | --- | --- |
 | `sensor.nordpool_predict_fi_upcoming_price` | Sensor | Upcoming hourly price (`c/kWh`) with the full forecast and `next_valid_from` timestamp attribute. |
 | `sensor.nordpool_predict_fi_upcoming_wind_power` | Optional sensor | Upcoming wind production forecast (MW) with the forecast series and `next_valid_from` attribute. |
+| `sensor.nordpool_predict_fi_cheapest_3h_price_window` | Sensor | Lowest average of any 3-hour window ahead; attributes expose `window_start`, `window_end`, `window_points`, and `raw_source`. |
+| `sensor.nordpool_predict_fi_cheapest_6h_price_window` | Sensor | Same as above for 6-hour windows, useful for longer running appliances. |
+| `sensor.nordpool_predict_fi_cheapest_12h_price_window` | Sensor | Tracks the cheapest 12-hour block for day-level planning. |
 
 All timestamps are UTC ISO8601 strings; Home Assistant handles local conversion based on your instance settings.
 
@@ -45,6 +48,7 @@ The integration requires system tzdata that includes `Europe/Helsinki`. If tzdat
 - Forecast rows are interpreted as 1-hour steps sorted in ascending time.
 - Only future predictions are exposed (trimmed to the next day or day-after-day cutoff described above).
 -- The coordinator surfaces the trimmed forecast and next effective timestamp for integrations that need to know when values change.
+- Rolling cheapest windows (3h, 6h, 12h) are calculated on the coordinator and surfaced both as sensor states (average price) and attributes you can reference in automations.
 
 ## Dashboard Cards
 

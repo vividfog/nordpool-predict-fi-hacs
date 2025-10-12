@@ -48,6 +48,15 @@
       },
       "nordpool_predict_fi__windpower": {
         "name": "Kommande vindkraft"
+      },
+      "nordpool_predict_fi__cheapest_3h": {
+        "name": "Billigaste 3h prisfönster"
+      },
+      "nordpool_predict_fi__cheapest_6h": {
+        "name": "Billigaste 6h prisfönster"
+      },
+      "nordpool_predict_fi__cheapest_12h": {
+        "name": "Billigaste 12h prisfönster"
       }
     }
   }

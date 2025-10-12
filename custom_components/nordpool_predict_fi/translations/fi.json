@@ -48,6 +48,15 @@
       },
       "nordpool_predict_fi__windpower": {
         "name": "Tuleva tuulivoima"
+      },
+      "nordpool_predict_fi__cheapest_3h": {
+        "name": "Edullisin 3h hintajakso"
+      },
+      "nordpool_predict_fi__cheapest_6h": {
+        "name": "Edullisin 6h hintajakso"
+      },
+      "nordpool_predict_fi__cheapest_12h": {
+        "name": "Edullisin 12h hintajakso"
       }
     }
   }

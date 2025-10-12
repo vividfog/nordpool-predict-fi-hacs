@@ -14,6 +14,7 @@ from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, Upda
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from .const import (
+    CHEAPEST_WINDOW_HOURS,
     CONF_INCLUDE_WINDPOWER,
     CONF_UPDATE_INTERVAL,
     DEFAULT_BASE_URL,
@@ -26,6 +27,15 @@ _LOGGER = logging.getLogger(__name__)
 class SeriesPoint:
     datetime: datetime
     value: float
+
+
+@dataclass(slots=True)
+class PriceWindow:
+    duration_hours: int
+    start: datetime
+    end: datetime
+    average: float
+    points: list[SeriesPoint]
 
 
 HELSINKI_MARKET_RELEASE = time(14, 0)
@@ -89,13 +99,20 @@ class NordpoolPredictCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             raise UpdateFailed(f"prediction.json missing at {err}") from err
         forecast_series = self._series_from_rows(prediction_rows)
 
-        prediction_points = [point for point in forecast_series if point.datetime >= prediction_cutoff]
+        prediction_points = [
+            point for point in forecast_series if point.datetime >= prediction_cutoff
+        ]
         current_point = prediction_points[0] if prediction_points else None
+        cheapest_windows = {
+            hours: self._find_cheapest_window(prediction_points, hours)
+            for hours in CHEAPEST_WINDOW_HOURS
+        }
 
         data: dict[str, Any] = {
             "price": {
                 "forecast": prediction_points,
                 "current": current_point,
+                "cheapest_windows": cheapest_windows,
                 "now": now,
             },
             "windpower": None,
@@ -205,3 +222,41 @@ class NordpoolPredictCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 "Helsinki timezone data is unavailable; install system tzdata to continue."
             ) from err
         return self._helsinki_tz
+
+    def _find_cheapest_window(
+        self,
+        series: list[SeriesPoint],
+        hours: int,
+    ) -> PriceWindow | None:
+        if hours <= 0 or len(series) < hours:
+            return None
+
+        best_window: PriceWindow | None = None
+        for index in range(len(series) - hours + 1):
+            window_points = series[index : index + hours]
+            if not self._is_hourly_sequence(window_points):
+                continue
+            average = sum(point.value for point in window_points) / hours
+            if best_window is None or average < best_window.average:
+                start_time = window_points[0].datetime
+                end_time = window_points[-1].datetime + timedelta(hours=1)
+                best_window = PriceWindow(
+                    duration_hours=hours,
+                    start=start_time,
+                    end=end_time,
+                    average=average,
+                    points=window_points,
+                )
+        return best_window
+
+    @staticmethod
+    def _is_hourly_sequence(window_points: list[SeriesPoint]) -> bool:
+        if len(window_points) <= 1:
+            return True
+        expected_delta = timedelta(hours=1)
+        previous = window_points[0].datetime
+        for current in window_points[1:]:
+            if current.datetime - previous != expected_delta:
+                return False
+            previous = current.datetime
+        return True

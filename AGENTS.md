@@ -1,5 +1,7 @@
 # Nordpool Predict FI – Agent Handbook
 
+source .venv/bin/activate
+
 ## Snapshot
 - Custom Home Assistant integration; core code under `custom_components/nordpool_predict_fi/`.
 - Python 3.12 target; asynchronous I/O via Home Assistant helpers.
@@ -10,7 +12,7 @@
 ## Primary Modules
 - `__init__.py`: sets up `DataUpdateCoordinator`, registers platforms, normalises config entry options.
 - `const.py`: domain constants, default config, attribute keys.
-- `coordinator.py`: fetches JSON artifacts, filters price data to Helsinki release rules, exposes `SeriesPoint` dataclass and price/wind payloads.
+- `coordinator.py`: fetches JSON artifacts, filters price data to Helsinki release rules, exposes `SeriesPoint` and `PriceWindow` dataclasses plus price/wind payloads.
 - `sensor.py`: sensor entities (upcoming price and optional upcoming wind) keyed off coordinator data.
 - `manifest.json`: minimal metadata (version, requirements, HA integration info).
 - `tests/conftest.py`: injects project root into `sys.path` so tests can import `custom_components`.
@@ -21,11 +23,13 @@
   - Uses Helsinki local time to decide prediction start: before 14:00 → tomorrow 01:00; after → day after tomorrow 01:00 (both local). All timestamps stored UTC.
   - Filters price series ≥ cutoff and retains a reference to the next effective timestamp.
 - Wind optional toggled by config flag.
+- Cheapest rolling windows (3h/6h/12h) are derived from contiguous hourly points and cached for sensor use.
 - Networking via `aiohttp` session + `async_timeout`.
 
 ## Entity Contracts
 - Price sensor (entity id defaults to `sensor.nordpool_predict_fi_upcoming_price`) attributes: `forecast`, `next_valid_from`, `raw_source`.
 - Wind sensor (entity id defaults to `sensor.nordpool_predict_fi_upcoming_wind_power`) attributes: `windpower_forecast`, `next_valid_from`, `raw_source`.
+- Cheapest price window sensors (`sensor.nordpool_predict_fi_cheapest_3h_price_window`, `..._6h_...`, `..._12h_...`) expose the lowest rolling averages along with `window_start`, `window_end`, `window_points`, and `raw_source` attributes.
 
 ## Configuration & Options
 - Config flow (via `config_flow.py`) exposes base URL, update interval (1–720 minutes), optional feeds. Options flow mirrors same schema.

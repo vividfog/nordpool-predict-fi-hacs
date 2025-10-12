@@ -15,10 +15,15 @@ from .const import (
     ATTR_NEXT_VALID_FROM,
     ATTR_RAW_SOURCE,
     ATTR_WIND_FORECAST,
+    ATTR_WINDOW_DURATION,
+    ATTR_WINDOW_END,
+    ATTR_WINDOW_POINTS,
+    ATTR_WINDOW_START,
+    CHEAPEST_WINDOW_HOURS,
     DATA_COORDINATOR,
     DOMAIN,
 )
-from .coordinator import NordpoolPredictCoordinator, SeriesPoint
+from .coordinator import NordpoolPredictCoordinator, PriceWindow, SeriesPoint
 
 
 async def async_setup_entry(
@@ -31,6 +36,9 @@ async def async_setup_entry(
     entities: list[SensorEntity] = [
         NordpoolPriceSensor(coordinator, entry),
     ]
+    entities.extend(
+        NordpoolCheapestWindowSensor(coordinator, entry, hours) for hours in CHEAPEST_WINDOW_HOURS
+    )
 
     if coordinator.include_windpower:
         entities.append(NordpoolWindpowerSensor(coordinator, entry))
@@ -65,6 +73,18 @@ class NordpoolBaseSensor(CoordinatorEntity[NordpoolPredictCoordinator], SensorEn
         section = data.get("price")
         if isinstance(section, Mapping):
             return section
+        return None
+
+    def _cheapest_window(self, hours: int) -> PriceWindow | None:
+        section = self._price_section()
+        if not section:
+            return None
+        windows = section.get("cheapest_windows")
+        if not isinstance(windows, Mapping):
+            return None
+        window = windows.get(hours)
+        if isinstance(window, PriceWindow):
+            return window
         return None
 
 
@@ -107,6 +127,42 @@ class NordpoolPriceSensor(NordpoolBaseSensor):
         if isinstance(value, SeriesPoint):
             return value
         return None
+
+
+class NordpoolCheapestWindowSensor(NordpoolBaseSensor):
+    _attr_icon = "mdi:clock-check-outline"
+    _attr_native_unit_of_measurement = "c/kWh"
+    _attr_state_class = SensorStateClass.MEASUREMENT
+
+    def __init__(self, coordinator: NordpoolPredictCoordinator, entry: ConfigEntry, hours: int) -> None:
+        super().__init__(coordinator, entry)
+        self._hours = hours
+        self._attr_translation_key = f"cheapest_{hours}h"
+        self._attr_unique_id = f"{entry.entry_id}_cheapest_{hours}h"
+        self._attr_name = f"Cheapest {hours}h Price Window"
+
+    @property
+    def native_value(self) -> float | None:
+        window = self._cheapest_window(self._hours)
+        return window.average if window else None
+
+    @property
+    def extra_state_attributes(self) -> Mapping[str, Any] | None:
+        window = self._cheapest_window(self._hours)
+        attributes: dict[str, Any] = {
+            ATTR_RAW_SOURCE: self.coordinator.base_url,
+            ATTR_WINDOW_DURATION: self._hours,
+        }
+        if window:
+            attributes[ATTR_WINDOW_START] = window.start.isoformat()
+            attributes[ATTR_WINDOW_END] = window.end.isoformat()
+            attributes[ATTR_WINDOW_POINTS] = self._build_forecast_attributes(window.points)
+        else:
+            attributes[ATTR_WINDOW_START] = None
+            attributes[ATTR_WINDOW_END] = None
+            attributes[ATTR_WINDOW_POINTS] = []
+        return attributes
+
 
 class NordpoolWindpowerSensor(NordpoolBaseSensor):
     _attr_translation_key = "windpower"

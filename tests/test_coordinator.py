@@ -9,7 +9,7 @@ from aiohttp import ClientError
 from homeassistant.helpers.update_coordinator import UpdateFailed
 from zoneinfo import ZoneInfo
 
-from custom_components.nordpool_predict_fi.coordinator import NordpoolPredictCoordinator
+from custom_components.nordpool_predict_fi.coordinator import NordpoolPredictCoordinator, PriceWindow
 
 
 class _MockResponse:
@@ -86,6 +86,20 @@ async def test_coordinator_parses_series(hass, enable_custom_integrations, monke
     assert price_section["current"].value == pytest.approx(23.0)
     assert price_section["forecast"][0].datetime == datetime(2024, 1, 1, 23, 0, tzinfo=timezone.utc)
     assert len(price_section["forecast"]) == 49
+    windows = price_section["cheapest_windows"]
+    window_3h = windows[3]
+    assert isinstance(window_3h, PriceWindow)
+    assert window_3h.start == datetime(2024, 1, 1, 23, 0, tzinfo=timezone.utc)
+    assert window_3h.end == datetime(2024, 1, 2, 2, 0, tzinfo=timezone.utc)
+    assert window_3h.average == pytest.approx(24.0)
+    assert len(window_3h.points) == 3
+    window_6h = windows[6]
+    assert isinstance(window_6h, PriceWindow)
+    assert window_6h.average == pytest.approx(25.5)
+    assert window_6h.end - window_6h.start == timedelta(hours=6)
+    window_12h = windows[12]
+    assert isinstance(window_12h, PriceWindow)
+    assert window_12h.average == pytest.approx(28.5)
 
     wind_section = data["windpower"]
     assert wind_section["series"][0].datetime == datetime(2024, 1, 1, 23, 0, tzinfo=timezone.utc)
