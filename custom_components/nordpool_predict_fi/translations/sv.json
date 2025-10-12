@@ -61,6 +61,18 @@
       "nordpool_predict_fi__price_now": {
         "name": "Pris nu"
       },
+      "nordpool_predict_fi__price_next_1h": {
+        "name": "Genomsnittspris 1h"
+      },
+      "nordpool_predict_fi__price_next_3h": {
+        "name": "Genomsnittspris 3h"
+      },
+      "nordpool_predict_fi__price_next_6h": {
+        "name": "Genomsnittspris 6h"
+      },
+      "nordpool_predict_fi__price_next_12h": {
+        "name": "Genomsnittspris 12h"
+      },
       "nordpool_predict_fi__windpower_now": {
         "name": "Vindkraft nu"
       },

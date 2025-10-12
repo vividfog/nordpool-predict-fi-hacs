@@ -14,6 +14,10 @@ Cheapest windows work across the entire data timeline, using both realized and f
 | --- | --- | --- |
 | `sensor.nordpool_predict_fi_price` | Sensor | Continuous hourly price timeline (`c/kWh`) built from Sähkötin realizations + Nordpool Predict forecasts. |
 | `sensor.nordpool_predict_fi_price_now` | Sensor | Latest price value at or before the current hour, plus the timestamp it originated from. |
+| `sensor.nordpool_predict_fi_price_next_1h` | Sensor | Average price for the next starting 1 hour. |
+| `sensor.nordpool_predict_fi_price_next_3h` | Sensor | Average price for the next 3 hours. |
+| `sensor.nordpool_predict_fi_price_next_6h` | Sensor | Average price for the next 6 hours. |
+| `sensor.nordpool_predict_fi_price_next_12h` | Sensor | Average price for the next 12 hours. |
 | `sensor.nordpool_predict_fi_windpower` | Optional sensor | Wind production forecast (MW) with the complete forecast series. |
 | `sensor.nordpool_predict_fi_windpower_now` | Optional sensor | Wind power value for the current hour with its timestamp. |
 | `sensor.nordpool_predict_fi_cheapest_3h_price_window` | Sensor | Lowest average of any 3-hour window in the data; attributes expose `window_start`, `window_end`, `window_points`, and `raw_source`. |

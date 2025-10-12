@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Any
 
 from homeassistant.components.sensor import SensorEntity, SensorStateClass
@@ -16,7 +16,6 @@ from .const import (
     ATTR_LANGUAGE,
     ATTR_NARRATION_CONTENT,
     ATTR_NARRATION_SUMMARY,
-    ATTR_NEXT_VALID_FROM,
     ATTR_RAW_SOURCE,
     ATTR_SOURCE_URL,
     ATTR_TIMESTAMP,
@@ -30,6 +29,7 @@ from .const import (
     DOMAIN,
     NARRATION_LANGUAGES,
     NARRATION_LANGUAGE_NAMES,
+    NEXT_HOURS,
 )
 from .coordinator import NordpoolPredictCoordinator, PriceWindow, SeriesPoint
 
@@ -45,6 +45,9 @@ async def async_setup_entry(
         NordpoolPriceSensor(coordinator, entry),
         NordpoolPriceNowSensor(coordinator, entry),
     ]
+    entities.extend(
+        NordpoolPriceNextHoursSensor(coordinator, entry, hours) for hours in NEXT_HOURS
+    )
     entities.extend(
         NordpoolCheapestWindowSensor(coordinator, entry, hours) for hours in CHEAPEST_WINDOW_HOURS
     )
@@ -117,6 +120,53 @@ class NordpoolBaseSensor(CoordinatorEntity[NordpoolPredictCoordinator], SensorEn
         if not isinstance(series, list):
             return []
         return [point for point in series if isinstance(point, SeriesPoint)]
+
+    def _future_point(self, hours_ahead: int) -> SeriesPoint | None:
+        series = self._price_series()
+        if not series:
+            return None
+        now = getattr(self.coordinator, "current_time", None)
+        if now is None:
+            now = datetime.now(timezone.utc)
+        target_time = now + timedelta(hours=hours_ahead)
+        # Find the point closest to target_time but >= target_time
+        for point in series:
+            if point.datetime >= target_time:
+                return point
+        return None
+
+    def _average_next_hours(self, hours: int) -> tuple[float | None, datetime | None]:
+        """Calculate average price for the next X hours starting now.
+
+        Returns a tuple of (average_price, start_timestamp).
+        If insufficient data points, returns (None, None).
+        """
+        series = self._price_series()
+        if not series:
+            return None, None
+
+        now = getattr(self.coordinator, "current_time", None)
+        if now is None:
+            now = datetime.now(timezone.utc)
+
+        # Find the first point >= now (start of averaging period)
+        points = []
+        for point in series:
+            if point.datetime >= now:
+                points.append(point)
+                if len(points) >= hours:
+                    break
+
+        if len(points) < hours:
+            # Insufficient data points
+            return None, None
+
+        # Take exactly 'hours' number of points starting from first point >= now
+        avg_points = points[:hours]
+        average = sum(p.value for p in avg_points) / len(avg_points)
+        start_time = avg_points[0].datetime
+
+        return average, start_time
 
     @staticmethod
     def _rounded_value(value: float, decimals: int | None) -> float | int:
@@ -206,6 +256,32 @@ class NordpoolPriceNowSensor(NordpoolBaseSensor):
             else:
                 break
         return latest or series[0]
+
+
+class NordpoolPriceNextHoursSensor(NordpoolBaseSensor):
+    _attr_icon = "mdi:cash-clock"
+    _attr_native_unit_of_measurement = "c/kWh"
+    _attr_state_class = SensorStateClass.MEASUREMENT
+
+    def __init__(self, coordinator: NordpoolPredictCoordinator, entry: ConfigEntry, hours: int) -> None:
+        super().__init__(coordinator, entry)
+        self._hours = hours
+        self._attr_translation_key = f"price_next_{hours}h"
+        self._attr_unique_id = f"{entry.entry_id}_price_next_{hours}h"
+        self._attr_name = f"Price Next {hours}h"
+
+    @property
+    def native_value(self) -> float | None:
+        average, _ = self._average_next_hours(self._hours)
+        return round(average, 1) if average is not None else None
+
+    @property
+    def extra_state_attributes(self) -> Mapping[str, Any] | None:
+        _, start_time = self._average_next_hours(self._hours)
+        return {
+            ATTR_TIMESTAMP: start_time.isoformat() if start_time else None,
+            ATTR_RAW_SOURCE: self.coordinator.base_url,
+        }
 
 
 class NordpoolCheapestWindowSensor(NordpoolBaseSensor):

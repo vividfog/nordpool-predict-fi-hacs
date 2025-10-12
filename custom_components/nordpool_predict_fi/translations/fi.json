@@ -61,14 +61,26 @@
       "nordpool_predict_fi__price_now": {
         "name": "Hinta nyt"
       },
+      "nordpool_predict_fi__price_next_1h": {
+        "name": "Keskiarvohinta 1h"
+      },
+      "nordpool_predict_fi__price_next_3h": {
+        "name": "Keskiarvohinta 3h"
+      },
+      "nordpool_predict_fi__price_next_6h": {
+        "name": "Keskiarvohinta 6h"
+      },
+      "nordpool_predict_fi__price_next_12h": {
+        "name": "Keskiarvohinta 12h"
+      },
       "nordpool_predict_fi__windpower_now": {
         "name": "Tuulivoima nyt"
       },
       "nordpool_predict_fi__narration_fi": {
-        "name": "Selostus (suomi)"
+        "name": "Selostus suomeksi"
       },
       "nordpool_predict_fi__narration_en": {
-        "name": "Selostus (englanti)"
+        "name": "Selostus englanniksi"
       }
     }
   }

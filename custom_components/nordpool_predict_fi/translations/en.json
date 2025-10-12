@@ -61,6 +61,18 @@
       "nordpool_predict_fi__price_now": {
         "name": "Price Now"
       },
+      "nordpool_predict_fi__price_next_1h": {
+        "name": "Average Price Next 1h"
+      },
+      "nordpool_predict_fi__price_next_3h": {
+        "name": "Average Price Next 3h"
+      },
+      "nordpool_predict_fi__price_next_6h": {
+        "name": "Average Price Next 6h"
+      },
+      "nordpool_predict_fi__price_next_12h": {
+        "name": "Average Price Next 12h"
+      },
       "nordpool_predict_fi__windpower_now": {
         "name": "Wind Power Now"
       },

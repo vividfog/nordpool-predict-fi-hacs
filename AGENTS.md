@@ -31,6 +31,10 @@
 - Price sensors:
   - `sensor.nordpool_predict_fi_price` → attributes `forecast`, `raw_source`.
   - `sensor.nordpool_predict_fi_price_now` → attributes `timestamp`, `raw_source`.
+- `sensor.nordpool_predict_fi_price_next_1h` → attributes `timestamp`, `raw_source` (average over next starting hour: T+1).
+- `sensor.nordpool_predict_fi_price_next_3h` → attributes `timestamp`, `raw_source` (average over next 3 hours: T+1 to T+3).
+- `sensor.nordpool_predict_fi_price_next_6h` → attributes `timestamp`, `raw_source` (average over next 6 hours: T+1 to T+6).
+- `sensor.nordpool_predict_fi_price_next_12h` → attributes `timestamp`, `raw_source` (average over next 12 hours: T+1 to T+12).
 - Wind sensors (when enabled):
   - `sensor.nordpool_predict_fi_windpower` → attributes `windpower_forecast`, `raw_source`.
   - `sensor.nordpool_predict_fi_windpower_now` → attributes `timestamp`, `raw_source`.

@@ -107,7 +107,7 @@ async def test_async_setup_entry_registers_entities(hass, enable_custom_integrat
     await sensor.async_setup_entry(hass, entry, _add_entities)
 
     expected_entity_count = (
-        2  # NordpoolPriceSensor and NordpoolPriceNowSensor
+        6  # NordpoolPriceSensor, NordpoolPriceNowSensor, and 4 next hour sensors
         + 2  # NordpoolWindpowerSensor and NordpoolWindpowerNowSensor
         + len(CHEAPEST_WINDOW_HOURS)  # Cheapest window sensors
         + len(NARRATION_LANGUAGES)  # Narration sensors
@@ -246,8 +246,7 @@ async def test_async_setup_entry_without_optional_feeds(hass, enable_custom_inte
 
     added: list[sensor.NordpoolBaseSensor] = []
     expected_entity_count = (
-        1  # NordpoolPriceSensor
-        + 1  # NordpoolPriceNowSensor
+        6  # NordpoolPriceSensor, NordpoolPriceNowSensor, and 4 next hour sensors
         + len(CHEAPEST_WINDOW_HOURS)  # NordpoolCheapestWindowSensor(s)
         + len(NARRATION_LANGUAGES)  # NordpoolNarrationSensor(s)
     )

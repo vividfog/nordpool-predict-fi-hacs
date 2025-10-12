@@ -4,7 +4,7 @@ import asyncio
 import logging
 import csv
 from dataclasses import dataclass
-from datetime import datetime, time, timedelta, timezone, tzinfo
+from datetime import datetime, timedelta, timezone, tzinfo
 from typing import Any
 from urllib.parse import urlencode
 
