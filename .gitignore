@@ -11,3 +11,4 @@ dist/
 test-config/
 .ruff_cache/
 .envrc
+nordpool-predict-fi-hacs.code-workspace
