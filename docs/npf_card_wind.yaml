@@ -16,7 +16,7 @@ now:
   color: "#1c88fb"
   label: Nyt
 series:
-  - entity: sensor.nordpool_predict_fi_upcoming_wind_power
+  - entity: sensor.nordpool_predict_fi_wind_power
     name: Tuulivoima
     type: line
     yaxis_id: wind
@@ -27,37 +27,30 @@ series:
     color: skyblue
     opacity: 1
     color_threshold:
-      - value: 0.5
+      - value: 1
         color: red
-        opacity: 0.8
-      - value: 1000
+      - value: 2
         color: skyblue
-        opacity: 0.8
-      - value: 2000
+      - value: 3
         color: deepskyblue
-        opacity: 0.8
-      - value: 3000
+      - value: 4
         color: dodgerblue
-        opacity: 0.8
-      - value: 4000
+      - value: 5
         color: blue
-        opacity: 0.8
-      - value: 5000
+      - value: 6
         color: mediumblue
-        opacity: 0.8
-      - value: 6000
+      - value: 7
         color: darkblue
-        opacity: 0.8
-      - value: 7000
+      - value: 99
         color: midnightblue
-        opacity: 0.8
     data_generator: |
       const data = entity.attributes.windpower_forecast || [];
-      return data.map((item) => [item.timestamp, item.value]);
+      return data.map((item) => [item.timestamp, item.value / 1000]);
     show:
       in_legend: true
       legend_value: false
-  - entity: sensor.nordpool_predict_fi_upcoming_price
+      in_header: false
+  - entity: sensor.nordpool_predict_fi_price
     name: Hinta nyt
     type: column
     yaxis_id: price
@@ -72,7 +65,8 @@ series:
     show:
       in_legend: true
       legend_value: false
-  - entity: sensor.nordpool_predict_fi_upcoming_wind_power
+      in_header: false
+  - entity: sensor.nordpool_predict_fi_wind_power
     type: area
     yaxis_id: wind
     extend_to: now
@@ -83,28 +77,123 @@ series:
     opacity: 0.16
     data_generator: |
       const data = entity.attributes.windpower_forecast || [];
-      return data.map((item) => [item.timestamp, item.value]);
+      return data.map((item) => [item.timestamp, item.value / 1000]);
     show:
       in_chart: true
       in_header: false
       in_legend: false
       legend_value: false
+  - entity: sensor.nordpool_predict_fi_wind_power
+    name: Tuulivoima nyt
+    float_precision: 0
+    color: skyblue
+    color_threshold:
+      - value: 1000
+        color: red
+      - value: 2000
+        color: skyblue
+      - value: 3000
+        color: deepskyblue
+      - value: 4000
+        color: dodgerblue
+      - value: 5000
+        color: blue
+      - value: 6000
+        color: mediumblue
+      - value: 7000
+        color: darkblue
+      - value: 8000
+        color: midnightblue
+    show:
+      in_chart: false
+      in_header: true
+      in_legend: false
+      legend_value: false
+  - entity: sensor.nordpool_predict_fi_price_now
+    name: Hinta nyt
+    unit: ¢
+    float_precision: 1
+    color: dimgray
+    color_threshold:
+      - value: 5
+        color: lime
+        opacity: 1
+      - value: 10
+        color: limegreen
+        opacity: 1
+      - value: 15
+        color: gold
+        opacity: 1
+      - value: 20
+        color: darkorange
+        opacity: 1
+      - value: 30
+        color: red
+        opacity: 1
+      - value: 999
+        color: darkred
+        opacity: 1
+    show:
+      in_chart: false
+      legend_value: false
+      in_header: raw
+      header_color_threshold: true
   - entity: sensor.nordpool_predict_fi_price_next_6h
     float_precision: 1
     color: dimgray
     unit: ¢
     name: Seuraavat 6h
+    color_threshold:
+      - value: 5
+        color: lime
+        opacity: 1
+      - value: 10
+        color: limegreen
+        opacity: 1
+      - value: 15
+        color: gold
+        opacity: 1
+      - value: 20
+        color: darkorange
+        opacity: 1
+      - value: 30
+        color: red
+        opacity: 1
+      - value: 999
+        color: darkred
+        opacity: 1
     show:
       in_chart: false
       legend_value: false
+      header_color_threshold: true
   - entity: sensor.nordpool_predict_fi_cheapest_6h_price_window
     color: dimgray
     float_precision: 1
     unit: ¢
     name: Halvin 6h
+    color_threshold:
+      - value: 5
+        color: lime
+        opacity: 1
+      - value: 10
+        color: limegreen
+        opacity: 1
+      - value: 15
+        color: gold
+        opacity: 1
+      - value: 20
+        color: darkorange
+        opacity: 1
+      - value: 30
+        color: red
+        opacity: 1
+      - value: 999
+        color: darkred
+        opacity: 1
     show:
       in_chart: false
       legend_value: false
+      header_color_threshold: true
 yaxis:
   - id: wind
     min: 0
@@ -113,7 +202,7 @@ yaxis:
       forceNiceScale: true
       tickAmount: 4
       title:
-        text: Tuulivoima (MW)
+        text: Tuulivoima (GW)
   - id: price
     opposite: true
     decimals: 0
@@ -124,22 +213,30 @@ yaxis:
         text: Hinta (¢/kWh)
 apex_config:
   chart:
+    height: 384
     toolbar:
       show: false
   grid:
     strokeDashArray: 3
-    xaxis:
-      lines:
-        show: true
   legend:
     show: false
     customLegendItems:
-      - Tuulivoima (MW)
+      - Tuulivoima (GW)
       - Ennustettu hinta (¢/kWh)
   xaxis:
     type: datetime
     labels:
-      datetimeFormatter:
-        day: dd MMM
+      formatter: |
+        EVAL:function (value, timestamp) {
+          const ts = timestamp || value;
+          const date = new Date(ts);
+          if (Number.isNaN(date.getTime())) {
+            return value;
+          }
+          const days = ['su', 'ma', 'ti', 'ke', 'to', 'pe', 'la'];
+          return days[date.getDay()];
+        }
+  tooltip:
+    enabled: false
   markers:
     size: 0
