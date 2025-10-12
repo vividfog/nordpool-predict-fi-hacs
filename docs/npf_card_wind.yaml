@@ -98,3 +98,64 @@ series:
              // Add a new entry for the day after tomorrow with a zero value
              [new Date(new Date().setDate(new Date().getDate() + 2)).setHours(0, 0, 0, 0), 0]
              ].filter(([timestamp, _]) => {
+                 const now = new Date();
+                 const endOfDayAfterTomorrow = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 3);
+                 endOfDayAfterTomorrow.setHours(0, 0, 0, 0); // Set to the beginning of the day after tomorrow
+                 return timestamp < endOfDayAfterTomorrow.getTime();
+             });
+  - entity: sensor.nordpool_predict_fi_upcoming_wind_power
+    type: area
+    yaxis_id: wind
+    extend_to: now
+    curve: stepline
+    stroke_width: 0
+    float_precision: 1
+    color: skyblue
+    opacity: 0.16
+    data_generator: |
+      const data = entity.attributes.windpower_forecast || [];
+      return data.map((item) => [item.timestamp, item.value / 1000]);
+    show:
+      in_chart: true
+      in_header: false
+      in_legend: false
+      legend_value: false
+yaxis:
+  - id: wind
+    min: 0
+    decimals: 1
+    apex_config:
+      tickAmount: 5
+      title:
+        text: Tuulivoima (GW)
+  - id: price
+    opposite: true
+    decimals: 0
+    apex_config:
+      tickAmount: 4
+      forceNiceScale: true
+      title:
+        text: Hinta (¢/kWh)
+apex_config:
+  chart:
+    toolbar:
+      show: false
+  theme:
+    mode: light
+  grid:
+    strokeDashArray: 3
+    xaxis:
+      lines:
+        show: true
+  legend:
+    show: true
+    customLegendItems:
+      - Tuulivoima (GW)
+      - Ennustettu hinta (¢/kWh)
+  xaxis:
+    type: datetime
+    labels:
+      datetimeFormatter:
+        day: dd MMM
+  markers:
+    size: 0

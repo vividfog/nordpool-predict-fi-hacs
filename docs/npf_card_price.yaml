@@ -92,3 +92,107 @@ series:
              }),
              // Add a new entry for the day after tomorrow with a zero value
              [new Date(new Date().setDate(new Date().getDate() + 2)).setHours(0, 0, 0, 0), 0]
+             ].filter(([timestamp, _]) => {
+                 const now = new Date();
+                 const endOfDayAfterTomorrow = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 3);
+                 endOfDayAfterTomorrow.setHours(0, 0, 0, 0); // Set to the beginning of the day after tomorrow
+                 return timestamp < endOfDayAfterTomorrow.getTime();
+             });
+    color_threshold:
+      - value: 3
+        color: lime
+        opacity: 1
+      - value: 6
+        color: limegreen
+        opacity: 1
+      - value: 10
+        color: gold
+        opacity: 1
+      - value: 20
+        color: darkorange
+        opacity: 1
+      - value: 30
+        color: red
+        opacity: 1
+      - value: 30.01
+        color: darkred
+        opacity: 1
+  - entity: sensor.nordpool_predict_fi_upcoming_price
+    name: ""
+    type: area
+    yaxis_id: price
+    float_precision: 1
+    color: limegreen
+    opacity: 0.16
+    stroke_width: 0
+    curve: stepline
+    extend_to: now
+    data_generator: |
+      const data = entity.attributes.forecast || [];
+      return data.map((item) => [item.timestamp, item.value]);
+    show:
+      in_chart: true
+      in_header: false
+      in_legend: false
+      legend_value: false
+yaxis:
+  - id: price
+    min: 0
+    decimals: 0
+    apex_config:
+      tickAmount: 6
+      forceNiceScale: true
+      labels:
+        style:
+          colors: rgba(90, 99, 110, 0.6)
+      title:
+        text: Hinta (¢/kWh)
+        style:
+          color: rgba(102, 109, 120, 0.7)
+  - id: wind
+    opposite: true
+    min: 0
+    decimals: 1
+    apex_config:
+      tickAmount: 6
+      labels:
+        style:
+          colors: rgba(90, 99, 110, 0.85)
+      title:
+        text: Tuulivoima (GW)
+        style:
+          color: rgba(102, 109, 120, 0.9)
+apex_config:
+  chart:
+    toolbar:
+      show: false
+  grid:
+    xaxis:
+      lines:
+        show: true
+  legend:
+    show: true
+    customLegendItems:
+      - Senttiä per kWh
+      - Tuulivoima, GW
+  xaxis:
+    type: datetime
+    labels:
+      datetimeFormatter:
+        day: dd MMM
+  markers:
+    size: 0
+  tooltip:
+    shared: true
+    enabledOnSeries:
+      - 0
+      - 1
+      - 3
+    x:
+      format: dd MMM HH:mm
+    "y":
+      formatter: |
+        if (seriesIndex === 0) {
+          return `${value.toFixed(1)} ¢/kWh`;
+        }
+        return `${value.toFixed(2)} GW`;
