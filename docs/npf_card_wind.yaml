@@ -1,0 +1,100 @@
+type: custom:apexcharts-card
+header:
+  show: true
+  title: Tuulivoima- ja hintaennuste
+  show_states: false
+  colorize_states: true
+  standard_format: false
+  disable_actions: true
+graph_span: 7d
+experimental:
+  color_threshold: true
+span:
+  start: hour
+now:
+  show: false
+  color: "#1c88fb"
+  label: Nyt
+series:
+  - entity: sensor.nordpool_predict_fi_upcoming_wind_power
+    name: Tuulivoima, GW
+    type: line
+    yaxis_id: wind
+    extend_to: now
+    curve: stepline
+    stroke_width: 1.5
+    float_precision: 2
+    color: skyblue
+    opacity: 1
+    color_threshold:
+      - value: 0.5
+        color: red
+        opacity: 0.8
+      - value: 1
+        color: skyblue
+        opacity: 0.8
+      - value: 2
+        color: deepskyblue
+        opacity: 0.8
+      - value: 3
+        color: dodgerblue
+        opacity: 0.8
+      - value: 4
+        color: blue
+        opacity: 0.8
+      - value: 5
+        color: mediumblue
+        opacity: 0.8
+      - value: 6
+        color: darkblue
+        opacity: 0.8
+      - value: 7
+        color: midnightblue
+        opacity: 0.8
+    data_generator: |
+      const data = entity.attributes.windpower_forecast || [];
+      return data.map((item) => [item.timestamp, item.value / 1000]);
+    show:
+      in_legend: true
+      legend_value: false
+  - entity: sensor.nordpool_predict_fi_upcoming_price
+    name: Senttiä per kWh
+    type: column
+    yaxis_id: price
+    float_precision: 1
+    color: "#c7ced6"
+    opacity: 0.35
+    extend_to: now
+    stroke_width: 0
+    data_generator: |
+      const data = entity.attributes.forecast || [];
+      return data.map((item) => [item.timestamp, item.value]);
+    show:
+      in_legend: true
+      legend_value: false
+  - entity: sensor.nordpool_kwh_fi_eur_3_10_0255
+    name: Nordpool toteutunut
+    yaxis_id: price
+    type: column
+    group_by:
+      func: avg
+      duration: 1h
+    float_precision: 1
+    stroke_width: 0
+    color: "#c7ced6"
+    opacity: 0.35
+    fill_raw: "null"
+    unit: ¢/kWh
+    show:
+      in_header: false
+      legend_value: false
+    data_generator: |
+      return [...entity.attributes.raw_today.map((start, index) => {
+                return [new Date(start["start"]).getTime(), entity.attributes.raw_today[index]["value"]*124];
+             }),
+             ...entity.attributes.raw_tomorrow.map((entry) => {
+                return [new Date(entry.start).getTime(), entry.value*124];
+             }),
+             // Add a new entry for the day after tomorrow with a zero value
+             [new Date(new Date().setDate(new Date().getDate() + 2)).setHours(0, 0, 0, 0), 0]
+             ].filter(([timestamp, _]) => {

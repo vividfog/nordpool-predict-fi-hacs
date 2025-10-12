@@ -1,0 +1,54 @@
+{
+  "title": "Nordpool Predict FI",
+  "config": {
+    "step": {
+      "user": {
+        "title": "Nordpool Predict FI",
+        "description": "Display Nordpool Predict FI predictions in Home Assistant.",
+        "data": {
+          "base_url": "Base URL",
+          "update_interval": "Update interval (minutes)",
+          "include_windpower": "Load wind power data"
+        }
+      },
+      "reconfigure": {
+        "title": "Nordpool Predict FI",
+        "description": "Review connection details or toggle optional datasets.",
+        "data": {
+          "base_url": "Base URL",
+          "update_interval": "Update interval (minutes)",
+          "include_windpower": "Load wind power data"
+        }
+      }
+    },
+    "error": {
+      "invalid_url": "Base URL must be a valid URL"
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Nordpool Predict FI options",
+        "description": "Adjust polling interval and optional datasets.",
+        "data": {
+          "base_url": "Base URL",
+          "update_interval": "Update interval (minutes)",
+          "include_windpower": "Load wind power data"
+        }
+      }
+    },
+    "error": {
+      "invalid_url": "Base URL must be a valid URL"
+    }
+  },
+  "entity": {
+    "sensor": {
+      "nordpool_predict_fi__price": {
+        "name": "Upcoming Price"
+      },
+      "nordpool_predict_fi__windpower": {
+        "name": "Upcoming Wind Power"
+      }
+    }
+  }
+}

@@ -1,0 +1,13 @@
+.DS_Store
+.idea/
+.pytest_cache/
+.venv/
+__pycache__/
+build/
+dist/
+*.pyc
+*.pyo
+*.pyd
+test-config/
+.ruff_cache/
+.envrc

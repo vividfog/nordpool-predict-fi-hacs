@@ -1,0 +1,94 @@
+type: custom:apexcharts-card
+header:
+  show: true
+  title: Hinta- ja tuulivoimaennuste
+  show_states: false
+  colorize_states: true
+  standard_format: false
+  disable_actions: true
+graph_span: 7d
+experimental:
+  color_threshold: true
+span:
+  start: hour
+now:
+  show: false
+  color: "#1c88fb"
+  label: Nyt
+series:
+  - entity: sensor.nordpool_predict_fi_upcoming_price
+    name: Senttiä per kWh
+    type: line
+    yaxis_id: price
+    float_precision: 0
+    color: limegreen
+    opacity: 1
+    curve: stepline
+    stroke_width: 1.5
+    extend_to: now
+    data_generator: |
+      const data = entity.attributes.forecast || [];
+      return data.map((item) => [item.timestamp, item.value]);
+    show:
+      in_legend: true
+      legend_value: false
+    color_threshold:
+      - value: 3
+        color: lime
+        opacity: 1
+      - value: 6
+        color: limegreen
+        opacity: 1
+      - value: 10
+        color: gold
+        opacity: 1
+      - value: 20
+        color: darkorange
+        opacity: 1
+      - value: 30
+        color: red
+        opacity: 1
+      - value: 30.01
+        color: darkred
+        opacity: 1
+  - entity: sensor.nordpool_predict_fi_upcoming_wind_power
+    name: Tuulivoima, GW
+    type: column
+    yaxis_id: wind
+    float_precision: 2
+    color: "#c7ced6"
+    opacity: 0.35
+    stroke_width: 0
+    curve: stepline
+    extend_to: now
+    data_generator: |
+      const data = entity.attributes.windpower_forecast || [];
+      return data.map((item) => [item.timestamp, item.value / 1000]);
+    show:
+      in_legend: true
+      legend_value: false
+  - entity: sensor.nordpool_kwh_fi_eur_3_10_0255
+    yaxis_id: price
+    type: column
+    float_precision: 3
+    stroke_width: 0
+    opacity: 1
+    fill_raw: "null"
+    unit: ¢/kWh
+    name: Nordpool ¢/kWh
+    group_by:
+      func: avg
+      duration: 1h
+    show:
+      in_header: false
+      legend_value: false
+      extremas: false
+    data_generator: |
+      return [...entity.attributes.raw_today.map((start, index) => {
+                return [new Date(start["start"]).getTime(), entity.attributes.raw_today[index]["value"]*124];
+             }),
+             ...entity.attributes.raw_tomorrow.map((entry) => {
+                return [new Date(entry.start).getTime(), entry.value*124];
+             }),
+             // Add a new entry for the day after tomorrow with a zero value
+             [new Date(new Date().setDate(new Date().getDate() + 2)).setHours(0, 0, 0, 0), 0]

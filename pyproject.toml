@@ -1,0 +1,23 @@
+[project]
+name = "nordpool-predict-fi-hacs"
+version = "0.1.0"
+description = "Home Assistant integration for Nordpool FI price predictions"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = []
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.2",
+    "pytest-asyncio>=0.23",
+    "pytest-homeassistant-custom-component>=0.13",
+    "ruff>=0.6",
+]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"

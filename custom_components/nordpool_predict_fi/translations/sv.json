@@ -1,0 +1,54 @@
+{
+  "title": "Nordpool Predict FI",
+  "config": {
+    "step": {
+      "user": {
+        "title": "Nordpool Predict FI",
+        "description": "Visa Nordpool Predict FI-prognoser i Home Assistant.",
+        "data": {
+          "base_url": "Bas-URL",
+          "update_interval": "Uppdateringsintervall (minuter)",
+          "include_windpower": "Hämta vindkraftsdata"
+        }
+      },
+      "reconfigure": {
+        "title": "Nordpool Predict FI",
+        "description": "Kontrollera anslutningsuppgifter eller valfria dataströmmar.",
+        "data": {
+          "base_url": "Bas-URL",
+          "update_interval": "Uppdateringsintervall (minuter)",
+          "include_windpower": "Hämta vindkraftsdata"
+        }
+      }
+    },
+    "error": {
+      "invalid_url": "Bas-URL måste vara en giltig URL"
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Nordpool Predict FI-alternativ",
+        "description": "Justera uppdateringsintervall och valfria dataströmmar.",
+        "data": {
+          "base_url": "Bas-URL",
+          "update_interval": "Uppdateringsintervall (minuter)",
+          "include_windpower": "Hämta vindkraftsdata"
+        }
+      }
+    },
+    "error": {
+      "invalid_url": "Bas-URL måste vara en giltig URL"
+    }
+  },
+  "entity": {
+    "sensor": {
+      "nordpool_predict_fi__price": {
+        "name": "Kommande pris"
+      },
+      "nordpool_predict_fi__windpower": {
+        "name": "Kommande vindkraft"
+      }
+    }
+  }
+}

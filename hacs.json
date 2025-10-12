@@ -1,0 +1,8 @@
+{
+  "name": "Nordpool Predict FI",
+  "render_readme": true,
+  "domains": ["sensor"],
+  "country": ["FI"],
+  "homeassistant": "2024.6.0",
+  "iot_class": ["cloud_polling"]
+}

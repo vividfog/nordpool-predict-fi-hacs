@@ -1,0 +1,54 @@
+{
+  "title": "Nordpool Predict FI",
+  "config": {
+    "step": {
+      "user": {
+        "title": "Nordpool Predict FI",
+        "description": "Näytä Nordpool Predict FI -ennusteet Home Assistantissa.",
+        "data": {
+          "base_url": "Osoite",
+          "update_interval": "Päivitysväli (minuuttia)",
+          "include_windpower": "Lataa tuulivoimatiedot"
+        }
+      },
+      "reconfigure": {
+        "title": "Nordpool Predict FI",
+        "description": "Tarkista yhteysasetukset tai valinnaiset aineistot.",
+        "data": {
+          "base_url": "Osoite",
+          "update_interval": "Päivitysväli (minuuttia)",
+          "include_windpower": "Lataa tuulivoimatiedot"
+        }
+      }
+    },
+    "error": {
+      "invalid_url": "Osoitteen tulee olla kelvollinen URL"
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Nordpool Predict FI -asetukset",
+        "description": "Muuta päivitysväliä ja valinnaisia aineistoja.",
+        "data": {
+          "base_url": "Osoite",
+          "update_interval": "Päivitysväli (minuuttia)",
+          "include_windpower": "Lataa tuulivoimatiedot"
+        }
+      }
+    },
+    "error": {
+      "invalid_url": "Osoitteen tulee olla kelvollinen URL"
+    }
+  },
+  "entity": {
+    "sensor": {
+      "nordpool_predict_fi__price": {
+        "name": "Tuleva hinta"
+      },
+      "nordpool_predict_fi__windpower": {
+        "name": "Tuleva tuulivoima"
+      }
+    }
+  }
+}

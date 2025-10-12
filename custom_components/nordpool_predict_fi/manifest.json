@@ -1,0 +1,16 @@
+{
+  "domain": "nordpool_predict_fi",
+  "name": "Nordpool Predict FI",
+  "version": "0.1.0",
+  "documentation": "https://github.com/vividfog/nordpool-predict-fi-hacs",
+  "issue_tracker": "https://github.com/vividfog/nordpool-predict-fi-hacs/issues",
+  "dependencies": [],
+  "codeowners": [
+    "@vividfog"
+  ],
+  "requirements": [],
+  "config_flow": true,
+  "iot_class": "cloud_polling",
+  "integration_type": "service",
+  "icon": "icon.png"
+}
