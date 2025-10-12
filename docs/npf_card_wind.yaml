@@ -2,9 +2,9 @@ type: custom:apexcharts-card
 header:
   show: true
   title: Tuulivoima- ja hintaennuste
-  show_states: false
+  show_states: true
   colorize_states: true
-  standard_format: false
+  standard_format: true
   disable_actions: true
 graph_span: 7d
 experimental:
@@ -12,12 +12,12 @@ experimental:
 span:
   start: hour
 now:
-  show: false
+  show: true
   color: "#1c88fb"
   label: Nyt
 series:
   - entity: sensor.nordpool_predict_fi_upcoming_wind_power
-    name: Tuulivoima, GW
+    name: Tuulivoima
     type: line
     yaxis_id: wind
     extend_to: now
@@ -30,40 +30,40 @@ series:
       - value: 0.5
         color: red
         opacity: 0.8
-      - value: 1
+      - value: 1000
         color: skyblue
         opacity: 0.8
-      - value: 2
+      - value: 2000
         color: deepskyblue
         opacity: 0.8
-      - value: 3
+      - value: 3000
         color: dodgerblue
         opacity: 0.8
-      - value: 4
+      - value: 4000
         color: blue
         opacity: 0.8
-      - value: 5
+      - value: 5000
         color: mediumblue
         opacity: 0.8
-      - value: 6
+      - value: 6000
         color: darkblue
         opacity: 0.8
-      - value: 7
+      - value: 7000
         color: midnightblue
         opacity: 0.8
     data_generator: |
       const data = entity.attributes.windpower_forecast || [];
-      return data.map((item) => [item.timestamp, item.value / 1000]);
+      return data.map((item) => [item.timestamp, item.value]);
     show:
       in_legend: true
       legend_value: false
   - entity: sensor.nordpool_predict_fi_upcoming_price
-    name: Senttiä per kWh
+    name: Hinta nyt
     type: column
     yaxis_id: price
     float_precision: 1
-    color: "#c7ced6"
-    opacity: 0.35
+    color: dimgray
+    opacity: 0.33
     extend_to: now
     stroke_width: 0
     data_generator: |
@@ -83,20 +83,37 @@ series:
     opacity: 0.16
     data_generator: |
       const data = entity.attributes.windpower_forecast || [];
-      return data.map((item) => [item.timestamp, item.value / 1000]);
+      return data.map((item) => [item.timestamp, item.value]);
     show:
       in_chart: true
       in_header: false
       in_legend: false
       legend_value: false
+  - entity: sensor.nordpool_predict_fi_price_next_6h
+    float_precision: 1
+    color: dimgray
+    unit: ¢
+    name: Seuraavat 6h
+    show:
+      in_chart: false
+      legend_value: false
+  - entity: sensor.nordpool_predict_fi_cheapest_6h_price_window
+    color: dimgray
+    float_precision: 1
+    unit: ¢
+    name: Halvin 6h
+    show:
+      in_chart: false
+      legend_value: false
 yaxis:
   - id: wind
     min: 0
-    decimals: 1
+    decimals: 0
     apex_config:
-      tickAmount: 5
+      forceNiceScale: true
+      tickAmount: 4
       title:
-        text: Tuulivoima (GW)
+        text: Tuulivoima (MW)
   - id: price
     opposite: true
     decimals: 0
@@ -115,9 +132,9 @@ apex_config:
       lines:
         show: true
   legend:
-    show: true
+    show: false
     customLegendItems:
-      - Tuulivoima (GW)
+      - Tuulivoima (MW)
       - Ennustettu hinta (¢/kWh)
   xaxis:
     type: datetime
