@@ -1,10 +1,10 @@
 # Nordpool Predict FI – Home Assistant Integration
 
-Nordpool Predict FI is a Home Assistant custom integration that mirrors the forecast data published by [`vividfog/nordpool-predict-fi`](https://github.com/vividfog/nordpool-predict-fi). It fetches the hourly price prediction (`prediction.json`) and optional wind power forecast (`windpower.json`) and makes them available as Home Assistant entities.
+Nordpool Predict FI is a Home Assistant integration that mirrors the forecasts published by [`vividfog/nordpool-predict-fi`](https://github.com/vividfog/nordpool-predict-fi). It reads the hourly price feed (`prediction.json`) and, if enabled, the wind forecast (`windpower.json`), then exposes the data as sensors.
 
-> **Release timing:** Nordpool publishes tomorrow’s Finnish spot prices at 14:00 Helsinki time. Until then the integration exposes only the next true predictions (tomorrow 01:00 onward before 14:00, day-after-tomorrow after 14:00). This avoids repeating the already-known prices for the current day.
->
-> The same cutoff is applied to the wind power forecast so both series stay aligned.
+Nordpool posts the next day’s Finnish spot prices at 14:00 Helsinki time. Until that happens the integration only shows yet-to-come hours: before 14:00 you see tomorrow from 01:00 onward, and after 14:00 the view jumps to the day after tomorrow. The wind forecast is trimmed the same way so both series stay aligned.
+
+The sample YAML cards ship with Nordpool’s realised prices from `sensor.nordpool_kwh_fi_eur_3_10_0255`; change the sensor ID to match your setup.
 
 ---
 
@@ -33,22 +33,22 @@ All timestamps are UTC ISO8601 strings; Home Assistant handles local conversion 
 
 `Settings → Devices & Services → Add Integration → Nordpool Predict FI`
 
-During setup (or later via *Configure*) you can adjust:
+During setup (or later via *Configure*) you can tweak:
 
-- **Base URL** – defaults to `https://raw.githubusercontent.com/vividfog/nordpool-predict-fi/main/deploy`. Replace it if you host the JSON elsewhere.
-- **Update interval** – refresh cadence in minutes (1–720, default 30).
-- **Load wind power data** – fetches `windpower.json` and creates the wind sensor.
+- **Base URL** – defaults to `https://raw.githubusercontent.com/vividfog/nordpool-predict-fi/main/deploy`. Point it to another host if you mirror the files.
+- **Update interval** – polling frequency in minutes (1–720, default 30).
+- **Load wind power data** – toggles downloads of `windpower.json` and enables the wind sensor.
 
-The integration requires system tzdata that includes `Europe/Helsinki`. If tzdata is missing the coordinator raises an actionable error in the Home Assistant logs.
+The host needs tzdata with the `Europe/Helsinki` zone. If that package is missing the coordinator raises a clear error in the Home Assistant logs.
 
 ---
 
 ## Working With the Data
 
-- Forecast rows are interpreted as 1-hour steps sorted in ascending time.
-- Only future predictions are exposed (trimmed to the next day or day-after-day cutoff described above).
--- The coordinator surfaces the trimmed forecast and next effective timestamp for integrations that need to know when values change.
-- Rolling cheapest windows (3h, 6h, 12h) are calculated on the coordinator and surfaced both as sensor states (average price) and attributes you can reference in automations.
+- Forecast rows are treated as hourly points sorted by time.
+- Only future predictions are exposed, trimmed according to the 14:00 cutoff described above.
+- The coordinator returns the trimmed forecast and the next timestamp when prices change.
+- Rolling cheapest windows (3h, 6h, 12h) are calculated in the coordinator and exposed both as sensor states (average price) and attributes for automations.
 
 ## Dashboard Cards
 
@@ -60,7 +60,8 @@ Copy the ready-made ApexCharts cards from the repository root:
 - [`npf_card_wind.yaml`](npf_card_wind.yaml) – focuses on wind output with price as supporting data over a week.
 
 ![Screenshot of combined price and wind power card in ApexCharts](docs/npf_card_wind.png)
-Paste the YAML into the Raw Configuration Editor of a Lovelace dashboard that has [ApexCharts Card](https://github.com/RomRider/apexcharts-card) installed. Adjust entity IDs if you renamed sensors. The cards rely on forecast attributes exposed by the price and wind sensors.
+
+Paste the YAML into the Raw Configuration Editor of a Lovelace dashboard that has [ApexCharts Card](https://github.com/RomRider/apexcharts-card) installed. Update the entity IDs if your sensors use different names. The cards read the forecast attributes exported by the price and wind sensors.
 
 ---
 
