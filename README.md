@@ -30,29 +30,7 @@ All timestamps are UTC ISO8601 strings; Home Assistant handles local conversion 
 
 Realized price data is provided courtesy of [Sähkötin](https://sahkotin.fi/hours).
 
-### Showing the narration
-
-Use a Markdown card to render the full narration; the example below pulls the Finnish text and falls back to English if it is missing:
-
-```yaml
-type: markdown
-content: |
-  {{ state_attr('sensor.nordpool_predict_fi_narration_fi', 'content')
-     or state_attr('sensor.nordpool_predict_fi_narration_en', 'content') }}
-```
-
-Both narration sensors expose `language`, `summary`, `content`, and `source_url` attributes so you can automate announcements, notifications, or alternative Lovelace cards.
-
-### Short summary (ingress)
-
-If you only want the short summary, render the sensor state (falls back from Finnish to English):
-
-```yaml
-type: markdown
-content: |
-  {{ states('sensor.nordpool_predict_fi_narration_fi')
-     or states('sensor.nordpool_predict_fi_narration_en') }}
-```
+Narration sensors expose `language`, `summary` (state), `content` (full Markdown), and `source_url` attributes.
 
 ---
 
@@ -92,7 +70,7 @@ The host needs tzdata with the `Europe/Helsinki` zone. If that package is missin
 
 ## Dashboard Cards
 
-Paste the YAML into the Raw Configuration Editor of a Lovelace dashboard that has [ApexCharts Card](https://github.com/RomRider/apexcharts-card) installed via [HACS](https://www.hacs.xyz/docs/use/download/download/). The cards read the forecast attributes exported by the price and wind sensors.
+All copy/paste YAML cards live in docs — see docs/README.md for quick instructions. Paste into a Manual card in a dashboard with [ApexCharts Card](https://github.com/RomRider/apexcharts-card) installed.
 
 [`npf_card_price.yaml`](docs/npf_card_price.yaml) combines the price sensor forecast with wind power to highlight how production correlates with price:
 
@@ -101,6 +79,12 @@ Paste the YAML into the Raw Configuration Editor of a Lovelace dashboard that ha
 [`npf_card_wind.yaml`](docs/npf_card_wind.yaml) – focuses on wind output with price as supporting data over a week:
 
 ![Screenshot of combined price and wind power card in ApexCharts](docs/npf_card_wind.png)
+
+Narration and summaries (no chart):
+- [`npf_card_narration_fi.yaml`](docs/npf_card_narration_fi.yaml) — full Finnish narration (Markdown `content`).
+- [`npf_card_narration_en.yaml`](docs/npf_card_narration_en.yaml) — full English narration (Markdown `content`).
+- [`npf_card_summary_fi.yaml`](docs/npf_card_summary_fi.yaml) — short Finnish summary (sensor state).
+- [`npf_card_summary_en.yaml`](docs/npf_card_summary_en.yaml) — short English summary (sensor state).
 
 ---
 
