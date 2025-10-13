@@ -213,7 +213,7 @@ yaxis:
         text: Hinta (¢/kWh)
 apex_config:
   chart:
-    height: 384
+    height: 256
     toolbar:
       show: false
   grid:
