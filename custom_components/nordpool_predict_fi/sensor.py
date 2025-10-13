@@ -18,6 +18,7 @@ from .const import (
     ATTR_LANGUAGE,
     ATTR_NARRATION_CONTENT,
     ATTR_NARRATION_SUMMARY,
+    ATTR_NARRATION_TABLE,
     ATTR_RAW_SOURCE,
     ATTR_SOURCE_URL,
     ATTR_TIMESTAMP,
@@ -63,6 +64,12 @@ async def async_setup_entry(
 
     entities.extend(
         NordpoolNarrationSensor(coordinator, entry, language) for language in NARRATION_LANGUAGES
+    )
+
+    # Narration summary table sensors (FI/EN)
+    entities.extend(
+        NordpoolNarrationTableSensor(coordinator, entry, language)
+        for language in NARRATION_LANGUAGES
     )
 
     async_add_entities(entities)
@@ -451,6 +458,69 @@ class NordpoolNarrationSensor(NordpoolBaseSensor):
         summary = section.get("summary")
         content = section.get("content")
         source = section.get("source")
+        if isinstance(summary, str) and summary:
+            attributes[ATTR_NARRATION_SUMMARY] = summary
+        if isinstance(content, str) and content:
+            attributes[ATTR_NARRATION_CONTENT] = content
+        if isinstance(source, str) and source:
+            attributes[ATTR_SOURCE_URL] = source
+        return attributes
+
+    def _section(self) -> Mapping[str, Any] | None:
+        data = self.coordinator.data or {}
+        narration = data.get("narration")
+        if not isinstance(narration, Mapping):
+            return None
+        section = narration.get(self._language)
+        if isinstance(section, Mapping):
+            return section
+        return None
+
+
+# region _narration_table
+class NordpoolNarrationTableSensor(NordpoolBaseSensor):
+    _attr_icon = "mdi:table"
+
+    def __init__(self, coordinator: NordpoolPredictCoordinator, entry: ConfigEntry, language: str) -> None:
+        super().__init__(coordinator, entry)
+        self._language = language
+        display_language = NARRATION_LANGUAGE_NAMES.get(language, language.upper())
+        self._attr_unique_id = f"{entry.entry_id}_narration_table_{language}"
+        self._attr_name = f"Summary Table ({display_language})"
+
+    @property
+    def native_value(self) -> int | None:
+        """Expose the number of data rows in the table as state.
+
+        Full table content is exposed via attribute ATTR_NARRATION_TABLE.
+        """
+        section = self._section()
+        if not section:
+            return None
+        table_md = section.get("table")
+        if not isinstance(table_md, str) or not table_md.strip():
+            return None
+        # Count data rows: skip header and alignment lines (first two table lines)
+        lines = [ln for ln in table_md.splitlines() if ln.strip()]
+        if len(lines) <= 2:
+            return 0
+        return len(lines) - 2
+
+    @property
+    def extra_state_attributes(self) -> Mapping[str, Any] | None:
+        section = self._section()
+        attributes: dict[str, Any] = {
+            ATTR_LANGUAGE: self._language,
+            ATTR_RAW_SOURCE: self.coordinator.base_url,
+        }
+        if not section:
+            return attributes
+        table_md = section.get("table")
+        summary = section.get("summary")
+        content = section.get("content")
+        source = section.get("source")
+        if isinstance(table_md, str) and table_md:
+            attributes[ATTR_NARRATION_TABLE] = table_md
         if isinstance(summary, str) and summary:
             attributes[ATTR_NARRATION_SUMMARY] = summary
         if isinstance(content, str) and content:

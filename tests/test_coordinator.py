@@ -443,3 +443,25 @@ def test_build_summary_skips_tables_and_truncates(hass, enable_custom_integratio
     assert summary.endswith("...")
     assert len(summary) <= 255
     assert "table" not in summary
+
+
+def test_extract_first_table_and_section_includes_table(hass, enable_custom_integrations) -> None:
+    coordinator = _coordinator(hass)
+    content = (
+        "Intro paragraph.\n\n"
+        "| H | A |\n"
+        "|:--|:-:|\n"
+        "| r1 | c1 |\n"
+        "| r2 | c2 |\n"
+        "\nTail paragraph.\n"
+    )
+
+    table = coordinator._extract_first_table(content)
+    assert table is not None
+    lines = [ln for ln in table.splitlines() if ln.strip()]
+    assert lines[0].startswith("|")
+    assert len(lines) == 4
+
+    section = coordinator._build_narration_section("narration_en.md", content)
+    assert section is not None
+    assert section["table"].startswith("|")

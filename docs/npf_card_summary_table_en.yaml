@@ -1,0 +1,5 @@
+type: markdown
+content: |
+  ### Nordpool Forecast
+  {{ state_attr('sensor.nordpool_predict_fi_narration_table_en', 'summary_table_markdown') }}
+

@@ -31,6 +31,7 @@ ATTR_WINDOW_POINTS = "window_points"
 ATTR_LANGUAGE = "language"
 ATTR_NARRATION_CONTENT = "content"
 ATTR_NARRATION_SUMMARY = "summary"
+ATTR_NARRATION_TABLE = "summary_table_markdown"
 ATTR_SOURCE_URL = "source_url"
 ATTR_TIMESTAMP = "timestamp"
 

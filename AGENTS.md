@@ -45,6 +45,8 @@
   - `sensor.nordpool_predict_fi_windpower_now` → attributes `timestamp`, `raw_source`.
   - Naming is unified as `windpower` everywhere (not `wind_power`).
 - Cheapest price window sensors (`sensor.nordpool_predict_fi_cheapest_3h_price_window`, `..._6h_...`, `..._12h_...`) expose lowest rolling averages across entire data timeline along with `window_start`, `window_end`, `window_points`, and `raw_source` attributes.
+ - Narration table sensors:
+   - `sensor.nordpool_predict_fi_narration_table_fi` and `_en` → state is integer data-row count; attributes include `summary_table_markdown` (full table), `summary`, `content`, `source_url`, and `language`.
 
 ## Configuration & Options
 - Config flow (via `config_flow.py`) exposes base URL and update interval (1–720 minutes). Options flow mirrors the same schema.
@@ -91,6 +93,7 @@
 ## Cautions
 - Do not block event loop; all I/O must be awaited.
 - Maintain ascii (no unicode) unless file already contains it.
-- Never reset user-modified git state; worktree may be dirty.
 - Respect Home Assistant conventions (entity unique IDs, device info).
+- Never reset user-modified git state; worktree may be dirty.
+- Never perform git operations unless explicitly requested by the user.
 - When adding tests, rely on helper classes (`MockConfigEntry`, `enable_custom_integrations`) already present.

@@ -400,9 +400,11 @@ class NordpoolPredictCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         if not normalized:
             return None
         summary = self._build_summary(normalized)
+        table = self._extract_first_table(normalized) or ""
         return {
             "content": normalized,
             "summary": summary,
+            "table": table,
             "source": self._compose_url(suffix),
         }
 
@@ -422,6 +424,35 @@ class NordpoolPredictCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             max_content_length = MAX_SUMMARY_LENGTH - len(SUMMARY_ELLIPSIS)
             return f"{compact[:max_content_length].rstrip()}{SUMMARY_ELLIPSIS}"
         return ""
+
+    @staticmethod
+    def _extract_first_table(content: str) -> str | None:
+        """Extract the first Markdown table block (lines starting with '|').
+
+        The table is considered a contiguous block of non-empty lines where each
+        line begins with a '|' after optional leading whitespace. Extraction stops
+        at the first blank line or a non-table line after the table has started.
+        Returns the block as-is, or None if no table is found.
+        """
+        lines = content.splitlines()
+        in_table = False
+        block: list[str] = []
+        for raw in lines:
+            line = raw.rstrip("\n\r")
+            if not in_table:
+                if line.lstrip().startswith("|"):
+                    in_table = True
+                    block.append(line)
+                continue
+            # Already in table
+            if not line.strip():
+                break
+            if not line.lstrip().startswith("|"):
+                break
+            block.append(line)
+        if in_table and len(block) >= 2:
+            return "\n".join(block)
+        return None
 
     
     def _parse_sahkotin_csv(self, csv_text: str, earliest: datetime | None) -> list[SeriesPoint]:
