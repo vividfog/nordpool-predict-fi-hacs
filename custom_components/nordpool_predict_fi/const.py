@@ -1,7 +1,10 @@
 from datetime import timedelta
 
+#region constants
+
 from homeassistant.const import Platform
 
+#region _core
 DOMAIN = "nordpool_predict_fi"
 PLATFORMS: list[Platform] = [Platform.SENSOR]
 
@@ -16,6 +19,7 @@ CONF_UPDATE_INTERVAL = "update_interval"
 DATA_COORDINATOR = "coordinator"
 DATA_UNSUB_LISTENER = "unsub_listener"
 
+#region _attrs
 ATTR_FORECAST = "forecast"
 ATTR_RAW_SOURCE = "raw_source"
 ATTR_WIND_FORECAST = "windpower_forecast"

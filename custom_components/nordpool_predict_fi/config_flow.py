@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+#region config_flow
+
 from collections.abc import Mapping
 from typing import Any
 
@@ -12,6 +14,7 @@ from homeassistant.helpers import config_validation as cv
 from .const import CONF_BASE_URL, CONF_UPDATE_INTERVAL, DEFAULT_BASE_URL, DEFAULT_UPDATE_INTERVAL_MINUTES, DOMAIN
 
 
+#region _flow
 class NordpoolPredictConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     VERSION = 1
 
@@ -74,6 +77,7 @@ class NordpoolPredictConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         return NordpoolPredictOptionsFlow(config_entry)
 
 
+#region _options
 class NordpoolPredictOptionsFlow(config_entries.OptionsFlow):
     def __init__(self, entry: config_entries.ConfigEntry) -> None:
         self._entry = entry
@@ -93,6 +97,7 @@ class NordpoolPredictOptionsFlow(config_entries.OptionsFlow):
         return self.async_show_form(step_id="init", data_schema=_form_schema(defaults), errors=errors)
 
 
+#region _forms
 def _form_schema(defaults: Mapping[str, Any] | None = None) -> vol.Schema:
     defaults = defaults or {}
     return vol.Schema(

@@ -1,3 +1,4 @@
+#region setup
 from __future__ import annotations
 
 import asyncio
@@ -35,12 +36,14 @@ class PriceWindow:
     points: list[SeriesPoint]
 
 
+
 HELSINKI_TIMEZONE_NAME = "Europe/Helsinki"
 
 
 MAX_SUMMARY_LENGTH = 255
 SUMMARY_ELLIPSIS = "..."
 
+#region coordinator
 class NordpoolPredictCoordinator(DataUpdateCoordinator[dict[str, Any]]):
     """Coordinator that fetches Nordpool FI prediction artifacts."""
 
@@ -65,6 +68,7 @@ class NordpoolPredictCoordinator(DataUpdateCoordinator[dict[str, Any]]):
     def base_url(self) -> str:
         return self._base_url
 
+    #region _update
     async def _async_update_data(self) -> dict[str, Any]:
         session = async_get_clientsession(self.hass)
         now = self._current_time()
@@ -74,18 +78,24 @@ class NordpoolPredictCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         # Data cutoff: show all data from today midnight Helsinki onwards
         today_midnight_helsinki = helsinki_now.replace(hour=0, minute=0, second=0, microsecond=0)
         data_cutoff = today_midnight_helsinki.astimezone(timezone.utc)
+        
 
+        
         try:
             prediction_rows = await self._fetch_json(session, "prediction.json")
         except FileNotFoundError as err:
             raise UpdateFailed(f"prediction.json missing at {err}") from err
         forecast_series = self._series_from_rows(prediction_rows)
         
+
+        
         # Filter forecast to show from today midnight onwards
         forecast_from_today = [
             point for point in forecast_series if point.datetime >= data_cutoff
         ]
+        
 
+        
         sahkotin_start_helsinki = helsinki_now.replace(hour=0, minute=0, second=0, microsecond=0)
         sahkotin_start = sahkotin_start_helsinki.astimezone(timezone.utc)
         forecast_horizon = forecast_series[-1].datetime if forecast_series else now + timedelta(days=2)
@@ -103,8 +113,11 @@ class NordpoolPredictCoordinator(DataUpdateCoordinator[dict[str, Any]]):
 
         realized_series = await sahkotin_task
         narration_fi, narration_en = await asyncio.gather(narration_fi_task, narration_en_task)
+        
 
+        
         merged_price_series = self._merge_price_series(realized_series, forecast_from_today)
+        
 
         # Find current point from merged series
         current_point = None
@@ -114,12 +127,15 @@ class NordpoolPredictCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             else:
                 break
         
+
         # Calculate cheapest windows using the full merged series
         cheapest_windows = {
             hours: self._find_cheapest_window(merged_price_series, hours)
             for hours in CHEAPEST_WINDOW_HOURS
         }
+        
 
+        
         data: dict[str, Any] = {
             "price": {
                 "forecast": merged_price_series,
@@ -137,7 +153,9 @@ class NordpoolPredictCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 CONF_UPDATE_INTERVAL: self.update_interval,
             },
         }
+        
 
+        
         wind_rows = await self._safe_fetch_artifact(session, "windpower.json")
         if wind_rows:
             wind_series = self._series_from_rows(wind_rows)
@@ -153,9 +171,11 @@ class NordpoolPredictCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 "series": wind_from_today,
                 "current": wind_current,
             }
+        
 
         return data
 
+    #region _fetch
     async def _safe_fetch_artifact(self, session, suffix: str) -> list[Any] | None:
         try:
             return await self._fetch_json(session, suffix)
@@ -186,6 +206,7 @@ class NordpoolPredictCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             _LOGGER.warning("Timeout reaching artifact %s", suffix)
         return None
 
+    
     async def _safe_fetch_sahkotin_series(
         self,
         session,
@@ -206,6 +227,7 @@ class NordpoolPredictCoordinator(DataUpdateCoordinator[dict[str, Any]]):
 
         return self._parse_sahkotin_csv(csv_text, start)
 
+    
     async def _fetch_json(self, session, suffix: str) -> list[Any]:
         url = self._compose_url(suffix)
         try:
@@ -228,6 +250,7 @@ class NordpoolPredictCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         except ClientError as err:
             raise UpdateFailed(f"Network error fetching {url}") from err
 
+    
     async def _fetch_text(self, session, suffix: str) -> str:
         url = self._compose_url(suffix)
         try:
@@ -245,6 +268,7 @@ class NordpoolPredictCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         except ClientError as err:
             raise UpdateFailed(f"Network error fetching {url}") from err
 
+    
     async def _fetch_sahkotin_csv(
         self,
         session,
@@ -273,9 +297,11 @@ class NordpoolPredictCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         except ClientError as err:
             raise UpdateFailed(f"Network error fetching {url}") from err
 
+    
     def _compose_url(self, suffix: str) -> str:
         return f"{self._base_url}/{suffix}"
 
+    #region _parse
     def _series_from_rows(self, rows: list[Any]) -> list[SeriesPoint]:
         series: list[SeriesPoint] = []
         for row in rows or []:
@@ -290,6 +316,7 @@ class NordpoolPredictCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         return series
 
     @staticmethod
+    
     def _safe_datetime(timestamp: Any) -> datetime | None:
         if timestamp is None:
             return None
@@ -299,6 +326,7 @@ class NordpoolPredictCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             return None
 
     @staticmethod
+    
     def _safe_float(value: Any) -> float | None:
         if value is None:
             return None
@@ -308,9 +336,11 @@ class NordpoolPredictCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             return None
 
     @staticmethod
+    #region _time
     def _current_time() -> datetime:
         return datetime.now(timezone.utc)
 
+    
     def _get_helsinki_timezone(self) -> tzinfo:
         if self._helsinki_tz is not None:
             return self._helsinki_tz
@@ -322,6 +352,7 @@ class NordpoolPredictCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             ) from err
         return self._helsinki_tz
 
+    #region _windows
     def _find_cheapest_window(
         self,
         series: list[SeriesPoint],
@@ -349,6 +380,7 @@ class NordpoolPredictCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         return best_window
 
     @staticmethod
+    
     def _is_hourly_sequence(window_points: list[SeriesPoint]) -> bool:
         if len(window_points) <= 1:
             return True
@@ -360,6 +392,7 @@ class NordpoolPredictCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             previous = current.datetime
         return True
 
+    #region _narration
     def _build_narration_section(self, suffix: str, content: str | None) -> dict[str, str] | None:
         if content is None:
             return None
@@ -374,6 +407,7 @@ class NordpoolPredictCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         }
 
     @staticmethod
+    
     def _build_summary(content: str) -> str:
         for line in content.splitlines():
             candidate = line.strip()
@@ -389,6 +423,7 @@ class NordpoolPredictCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             return f"{compact[:max_content_length].rstrip()}{SUMMARY_ELLIPSIS}"
         return ""
 
+    
     def _parse_sahkotin_csv(self, csv_text: str, earliest: datetime | None) -> list[SeriesPoint]:
         if not csv_text:
             return []
@@ -424,6 +459,7 @@ class NordpoolPredictCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         series.sort(key=lambda item: item.datetime)
         return series
 
+    #region _merge
     def _merge_price_series(
         self,
         realized_series: list[SeriesPoint],

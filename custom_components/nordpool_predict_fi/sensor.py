@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+#region sensor
+
 from collections.abc import Mapping
 from datetime import datetime, timedelta, timezone
 from typing import Any
@@ -34,6 +36,7 @@ from .const import (
 from .coordinator import NordpoolPredictCoordinator, PriceWindow, SeriesPoint
 
 
+#region _setup
 async def async_setup_entry(
     hass: HomeAssistant,
     entry: ConfigEntry,
@@ -65,6 +68,7 @@ async def async_setup_entry(
     async_add_entities(entities)
 
 
+#region _base
 class NordpoolBaseSensor(CoordinatorEntity[NordpoolPredictCoordinator], SensorEntity):
     _attr_has_entity_name = True
     _attr_should_poll = False
@@ -176,6 +180,7 @@ class NordpoolBaseSensor(CoordinatorEntity[NordpoolPredictCoordinator], SensorEn
         return rounded
 
 
+#region _price
 class NordpoolPriceSensor(NordpoolBaseSensor):
     _attr_translation_key = "price"
     _attr_icon = "mdi:chart-line"
@@ -215,6 +220,7 @@ class NordpoolPriceSensor(NordpoolBaseSensor):
         return None
 
 
+#region _price_now
 class NordpoolPriceNowSensor(NordpoolBaseSensor):
     _attr_translation_key = "price_now"
     _attr_icon = "mdi:cash-clock"
@@ -256,6 +262,7 @@ class NordpoolPriceNowSensor(NordpoolBaseSensor):
         return latest
 
 
+#region _price_next
 class NordpoolPriceNextHoursSensor(NordpoolBaseSensor):
     _attr_icon = "mdi:cash-clock"
     _attr_native_unit_of_measurement = "c/kWh"
@@ -282,6 +289,7 @@ class NordpoolPriceNextHoursSensor(NordpoolBaseSensor):
         }
 
 
+#region _windows
 class NordpoolCheapestWindowSensor(NordpoolBaseSensor):
     _attr_icon = "mdi:clock-check-outline"
     _attr_native_unit_of_measurement = "c/kWh"
@@ -317,6 +325,7 @@ class NordpoolCheapestWindowSensor(NordpoolBaseSensor):
         return attributes
 
 
+#region _windpower
 class NordpoolWindpowerSensor(NordpoolBaseSensor):
     _attr_translation_key = "windpower"
     _attr_icon = "mdi:weather-windy"
@@ -354,6 +363,7 @@ class NordpoolWindpowerSensor(NordpoolBaseSensor):
         return (self.coordinator.data or {}).get("windpower")
 
 
+#region _windpower_now
 class NordpoolWindpowerNowSensor(NordpoolBaseSensor):
     _attr_translation_key = "windpower_now"
     _attr_icon = "mdi:weather-windy"
@@ -405,6 +415,7 @@ class NordpoolWindpowerNowSensor(NordpoolBaseSensor):
         return None
 
 
+#region _narration
 class NordpoolNarrationSensor(NordpoolBaseSensor):
     _attr_icon = "mdi:file-document-edit-outline"
 

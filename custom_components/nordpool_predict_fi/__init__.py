@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+#region setup
+
 from collections.abc import Mapping
 from datetime import timedelta
 from typing import Any
@@ -14,11 +16,13 @@ from .coordinator import NordpoolPredictCoordinator
 type NordpoolConfigEntry = ConfigEntry
 
 
+#region _bootstrap
 async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
     hass.data.setdefault(DOMAIN, {})
     return True
 
 
+#region _entry_setup
 async def async_setup_entry(hass: HomeAssistant, entry: NordpoolConfigEntry) -> bool:
     hass.data.setdefault(DOMAIN, {})
     runtime_config = _runtime_entry_config(entry)
@@ -42,6 +46,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: NordpoolConfigEntry) -> 
     return True
 
 
+#region _entry_unload
 async def async_unload_entry(hass: HomeAssistant, entry: NordpoolConfigEntry) -> bool:
     unload_ok = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
     if unload_ok:
@@ -51,10 +56,12 @@ async def async_unload_entry(hass: HomeAssistant, entry: NordpoolConfigEntry) ->
     return unload_ok
 
 
+#region _options_update
 async def async_update_entry(hass: HomeAssistant, entry: NordpoolConfigEntry) -> None:
     await hass.config_entries.async_reload(entry.entry_id)
 
 
+#region _config
 def _runtime_entry_config(entry: NordpoolConfigEntry) -> Mapping[str, Any]:
     result: dict[str, Any] = {
         CONF_BASE_URL: DEFAULT_BASE_URL,
