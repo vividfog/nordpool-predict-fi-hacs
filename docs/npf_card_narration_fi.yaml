@@ -1,3 +1,5 @@
 type: markdown
 content: |
+  ### Nordpool-ennuste
   {{ state_attr('sensor.nordpool_predict_fi_narration_fi', 'content') }}
+text_only: true
