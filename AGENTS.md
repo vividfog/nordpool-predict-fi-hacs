@@ -21,11 +21,16 @@
   - Calculates `data_cutoff`: today midnight Helsinki time for showing all available data from beginning of today onwards.
   - Filters price and wind data ≥ `data_cutoff` to show aligned timelines.
   - Pulls Sähkötin CSV for the current Helsinki day and merges realized rows with forecast data from today onwards.
-  - Current point found from merged series (latest point ≤ now).
+  - Current point found from merged series (latest point ≤ now). If no point exists at or before `now`, current is left unknown (no fallback to future).
   - Cheapest windows (3h/6h/12h) calculated across entire merged series (realized + forecast).
 - Wind series filtered the same way as price (from today midnight).
 - Cheapest rolling windows (3h/6h/12h) are derived from contiguous hourly points across full merged data and cached for sensor use.
 - Networking via `aiohttp` session + `async_timeout`.
+
+### Time semantics (important)
+- "Now" means the latest sample at or before the current time, never a future value.
+- "Next X" windows start strictly at the next full hour (T+1) and span X contiguous hours (e.g., next 3h = T+1..T+3). The current hour is excluded.
+- When source data lacks a past/current sample, sensors must not present a future value as "now"; they should surface `unknown`/no state and include `raw_source` for transparency.
 
 ## Entity Contracts
 - Price sensors:
@@ -38,6 +43,7 @@
 - Wind sensors:
   - `sensor.nordpool_predict_fi_windpower` → attributes `windpower_forecast`, `raw_source`.
   - `sensor.nordpool_predict_fi_windpower_now` → attributes `timestamp`, `raw_source`.
+  - Naming is unified as `windpower` everywhere (not `wind_power`).
 - Cheapest price window sensors (`sensor.nordpool_predict_fi_cheapest_3h_price_window`, `..._6h_...`, `..._12h_...`) expose lowest rolling averages across entire data timeline along with `window_start`, `window_end`, `window_points`, and `raw_source` attributes.
 
 ## Configuration & Options
@@ -46,7 +52,7 @@
 - Update interval stored as `timedelta` in runtime config; options override entry data.
 
 ## Testing & Tooling
-- `source .venv/bin/activate` to run pytest; we use `uv venv` 
+- `source .venv/bin/activate` to run pytest; we use `uv venv`
 - Test suite: `pytest` with fixtures from `pytest-homeassistant-custom-component`.
 - Lint: `ruff check`.
 - Standard dev workflow (from repo root):
@@ -56,6 +62,12 @@
   ruff check
   ```
 - Tests cover coordinator fetching/processing, config flows, sensors, binary sensors.
+
+### Test intent (important)
+- "Now" uses the latest point ≤ `now`; no future fallback.
+- All "next X" sensors begin at T+1 and exclude the current hour.
+- Boundary coverage includes the no-past-data case where current is `None`/`unknown`.
+- Pytest config sets `asyncio_default_fixture_loop_scope = "function"` in `pyproject.toml`.
 
 ## External Expectations
 - Requires tzdata providing `Europe/Helsinki`; otherwise coordinator aborts with actionable error.
@@ -70,6 +82,9 @@
 - Extending attributes: edit sensor property methods; tests should assert attribute presence.
 - Changing prediction logic: update coordinator calculations; keep tests in `tests/test_coordinator.py` aligned.
 - Document UI changes in both `README.md` and `AGENTS.md`; reference card YAML when altering forecast attributes to avoid breaking dashboards.
+
+## Style
+- Use 1-2 word region labels. Depth is shown by underscores: `#region setup` or `#region data_load` (top), `#region _step` or `#region _validate_input` (nested), `#region __loop` or `#region __check_format` (deep). The goal is a clean, readable hierarchy in the zoomed-out VS Code map where underscores visually indicate nesting level. Always omit endregion.
 
 ## Cautions
 - Do not block event loop; all I/O must be awaited.
