@@ -132,7 +132,9 @@ async def test_coordinator_parses_series(hass, enable_custom_integrations, monke
     wind_section = data["windpower"]
     # Wind data now starts from today midnight Helsinki (2023-12-31 22:00 UTC -> first available at 00:00 UTC)
     assert wind_section["series"][0].datetime == datetime(2024, 1, 1, 0, 0, tzinfo=timezone.utc)
-    assert wind_section["current"].value == pytest.approx(3200.0)
+    hours_since_start = int((now - forecast_start).total_seconds() // 3600)
+    expected_wind_value = 3200.0 + hours_since_start * 5
+    assert wind_section["current"].value == pytest.approx(expected_wind_value)
     assert len(wind_section["series"]) == 120
     narration = data["narration"]
     assert narration["fi"]["content"] == "*Lyhyt tiivistelmä ensimmäiselle riville.*  \nLisärivi."
@@ -196,6 +198,59 @@ async def test_coordinator_merges_realized_and_forecast(
     # Current point is at or before now (15:00 Helsinki = 13:00 UTC) from merged series
     # At 13:00 UTC, the forecast value is 13.0
     assert price_section["current"].value == pytest.approx(13.0)
+
+
+@pytest.mark.asyncio
+async def test_coordinator_current_none_when_no_past_points(
+    hass, enable_custom_integrations, monkeypatch
+) -> None:
+    base_url = "https://example.com/deploy"
+    helsinki = ZoneInfo("Europe/Helsinki")
+    now_helsinki = datetime(2024, 1, 1, 10, 0, tzinfo=helsinki)
+    now = now_helsinki.astimezone(timezone.utc)
+    future_start = now + timedelta(hours=1)
+    forecast = [
+        [(future_start + timedelta(hours=offset)).timestamp() * 1000, float(offset + 1)]
+        for offset in range(12)
+    ]
+    wind = [
+        [(future_start + timedelta(hours=offset)).timestamp() * 1000, 4000.0 + offset * 20]
+        for offset in range(6)
+    ]
+
+    realized_csv = "timestamp,price\n"
+
+    session = _MockSession(
+        {
+            f"{base_url}/prediction.json": forecast,
+            f"{base_url}/windpower.json": wind,
+            f"{base_url}/narration.md": "Example FI",
+            f"{base_url}/narration_en.md": "Example EN",
+            "sahkotin": realized_csv,
+        }
+    )
+
+    monkeypatch.setattr(
+        "custom_components.nordpool_predict_fi.coordinator.async_get_clientsession",
+        lambda hass: session,
+    )
+
+    coordinator = NordpoolPredictCoordinator(
+        hass=hass,
+        entry_id="test",
+        base_url=base_url,
+        update_interval=timedelta(minutes=15),
+    )
+    monkeypatch.setattr(coordinator, "_current_time", lambda: now)
+
+    data = await coordinator._async_update_data()
+    price_section = data["price"]
+    assert price_section["current"] is None
+    assert price_section["forecast"][0].datetime == future_start
+    wind_section = data["windpower"]
+    assert wind_section is not None
+    assert wind_section["current"] is None
+    assert wind_section["series"][0].datetime == future_start
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize(

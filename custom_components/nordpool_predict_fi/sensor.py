@@ -147,20 +147,20 @@ class NordpoolBaseSensor(CoordinatorEntity[NordpoolPredictCoordinator], SensorEn
         if now is None:
             now = datetime.now(timezone.utc)
 
-        # Find the first point >= now (start of averaging period)
-        points = []
+        # Collect points strictly after now for the averaging period
+        future_points = []
         for point in series:
-            if point.datetime >= now:
-                points.append(point)
-                if len(points) >= hours:
+            if point.datetime > now:
+                future_points.append(point)
+                if len(future_points) >= hours:
                     break
 
-        if len(points) < hours:
+        if len(future_points) < hours:
             # Insufficient data points
             return None, None
 
-        # Take exactly 'hours' number of points starting from first point >= now
-        avg_points = points[:hours]
+        # Take exactly 'hours' number of points starting from the first point strictly after now
+        avg_points = future_points[:hours]
         average = sum(p.value for p in avg_points) / len(avg_points)
         start_time = avg_points[0].datetime
 
@@ -253,7 +253,7 @@ class NordpoolPriceNowSensor(NordpoolBaseSensor):
                 latest = point
             else:
                 break
-        return latest or series[0]
+        return latest
 
 
 class NordpoolPriceNextHoursSensor(NordpoolBaseSensor):
@@ -342,8 +342,11 @@ class NordpoolWindpowerSensor(NordpoolBaseSensor):
         if not section:
             return None
         series: list[SeriesPoint] = section.get("series", [])
+        forecast_series = [
+            point for point in series if isinstance(point, SeriesPoint)
+        ]
         return {
-            ATTR_WIND_FORECAST: self._build_forecast_attributes(series, decimals=0),
+            ATTR_WIND_FORECAST: self._build_forecast_attributes(forecast_series, decimals=0),
             ATTR_RAW_SOURCE: self.coordinator.base_url,
         }
 
@@ -386,9 +389,19 @@ class NordpoolWindpowerNowSensor(NordpoolBaseSensor):
             return current
         series = section.get("series")
         if isinstance(series, list):
+            now = getattr(self.coordinator, "current_time", None)
+            if now is None:
+                now = datetime.now(timezone.utc)
+            latest: SeriesPoint | None = None
             for point in series:
-                if isinstance(point, SeriesPoint):
-                    return point
+                if not isinstance(point, SeriesPoint):
+                    continue
+                if point.datetime <= now:
+                    latest = point
+                else:
+                    break
+            if latest:
+                return latest
         return None
 
 

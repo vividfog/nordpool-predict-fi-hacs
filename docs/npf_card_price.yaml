@@ -70,7 +70,7 @@ series:
       in_header: false
       in_legend: false
       legend_value: false
-  - entity: sensor.nordpool_predict_fi_wind_power
+  - entity: sensor.nordpool_predict_fi_windpower
     name: Tuulivoima
     type: column
     yaxis_id: wind
@@ -173,7 +173,7 @@ series:
       in_chart: false
       legend_value: false
       header_color_threshold: true
-  - entity: sensor.nordpool_predict_fi_wind_power
+  - entity: sensor.nordpool_predict_fi_windpower
     name: Tuulivoima
     float_precision: 0
     color: skyblue

@@ -79,7 +79,7 @@ series:
       in_header: false
       in_legend: false
       legend_value: false
-  - entity: sensor.nordpool_predict_fi_wind_power
+  - entity: sensor.nordpool_predict_fi_windpower
     name: Tuulivoima
     type: column
     yaxis_id: wind
@@ -182,7 +182,7 @@ series:
       in_chart: false
       legend_value: false
       header_color_threshold: true
-  - entity: sensor.nordpool_predict_fi_wind_power
+  - entity: sensor.nordpool_predict_fi_windpower
     name: Tuulivoima
     float_precision: 0
     color: skyblue
@@ -262,7 +262,7 @@ now:
   color: "#1c88fb"
   label: Nyt
 series:
-  - entity: sensor.nordpool_predict_fi_wind_power
+  - entity: sensor.nordpool_predict_fi_windpower
     name: Tuulivoima
     type: line
     yaxis_id: wind
@@ -312,7 +312,7 @@ series:
       in_legend: true
       legend_value: false
       in_header: false
-  - entity: sensor.nordpool_predict_fi_wind_power
+  - entity: sensor.nordpool_predict_fi_windpower
     type: area
     yaxis_id: wind
     extend_to: now
@@ -329,7 +329,7 @@ series:
       in_header: false
       in_legend: false
       legend_value: false
-  - entity: sensor.nordpool_predict_fi_wind_power
+  - entity: sensor.nordpool_predict_fi_windpower
     name: Tuulivoima nyt
     float_precision: 0
     color: skyblue

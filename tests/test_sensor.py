@@ -25,6 +25,7 @@ from custom_components.nordpool_predict_fi.const import (
     DATA_COORDINATOR,
     DOMAIN,
     NARRATION_LANGUAGES,
+    NEXT_HOURS,
 )
 from custom_components.nordpool_predict_fi.coordinator import (
     NordpoolPredictCoordinator,
@@ -56,13 +57,16 @@ async def test_async_setup_entry_registers_entities(hass, enable_custom_integrat
     )
 
     now = datetime.now(timezone.utc).replace(minute=0, second=0, microsecond=0)
-    values = [12.3, 9.5, 8.0, 8.5, 7.0, 7.1, 9.2, 10.5, 11.0, 12.5, 13.0, 14.0]
+    values = [12.3, 9.5, 8.0, 8.5, 7.0, 7.1, 9.2, 10.5, 11.0, 12.5, 13.0, 14.0, 15.0]
+    current_point = _series_point(0, values[0], now)
+    future_values = values[1:]
     forecast_series = [
-        _series_point(index + 1, value, now) for index, value in enumerate(values)
+        _series_point(index + 1, value, now) for index, value in enumerate(future_values)
     ]
-    merged_price_series = [_series_point(0, values[0], now), *forecast_series]
+    merged_price_series = [current_point, *forecast_series]
     cheapest_windows = {
-        hours: coordinator._find_cheapest_window(forecast_series, hours) for hours in CHEAPEST_WINDOW_HOURS
+        hours: coordinator._find_cheapest_window(merged_price_series, hours)
+        for hours in CHEAPEST_WINDOW_HOURS
     }
     narration_section = {
         "fi": {
@@ -81,15 +85,16 @@ async def test_async_setup_entry_registers_entities(hass, enable_custom_integrat
         {
             "price": {
                 "forecast": merged_price_series,
-                "current": forecast_series[0],
+                "current": current_point,
                 "cheapest_windows": cheapest_windows,
             },
             "windpower": {
                 "series": [
-                    _series_point(1, 3500.0, now),
-                    _series_point(2, 4100.0, now),
+                    _series_point(0, 3500.0, now),
+                    _series_point(1, 4100.0, now),
+                    _series_point(2, 4200.0, now),
                 ],
-                "current": _series_point(1, 3500.0, now),
+                "current": _series_point(0, 3500.0, now),
             },
             "narration": narration_section,
         }
@@ -121,29 +126,55 @@ async def test_async_setup_entry_registers_entities(hass, enable_custom_integrat
     )
     price = next(entity for entity in added if isinstance(entity, sensor.NordpoolPriceSensor))
     attrs = price.extra_state_attributes
-    assert price.native_value == pytest.approx(12.3)
-    assert attrs[ATTR_FORECAST][0]["value"] == pytest.approx(12.3)
+    assert price.native_value == pytest.approx(round(current_point.value, 1))
+    assert attrs[ATTR_FORECAST][0]["value"] == pytest.approx(round(current_point.value, 1))
     assert attrs[ATTR_RAW_SOURCE] == "https://example.com/deploy"
     assert ATTR_NEXT_VALID_FROM not in attrs
 
     price_now = next(entity for entity in added if isinstance(entity, sensor.NordpoolPriceNowSensor))
     price_now_attrs = price_now.extra_state_attributes
-    assert price_now.native_value == pytest.approx(values[0])
-    assert price_now_attrs[ATTR_TIMESTAMP] == merged_price_series[0].datetime.isoformat()
+    assert price_now.native_value == pytest.approx(round(current_point.value, 1))
+    assert price_now_attrs[ATTR_TIMESTAMP] == current_point.datetime.isoformat()
     assert price_now_attrs[ATTR_RAW_SOURCE] == "https://example.com/deploy"
+
+    next_price_entities = [
+        entity for entity in added if isinstance(entity, sensor.NordpoolPriceNextHoursSensor)
+    ]
+    assert len(next_price_entities) == len(NEXT_HOURS)
+    next_by_hours: dict[int, sensor.NordpoolPriceNextHoursSensor] = {}
+    for entity in next_price_entities:
+        for hours in NEXT_HOURS:
+            if entity.unique_id.endswith(f"_price_next_{hours}h"):
+                next_by_hours[hours] = entity
+                break
+    assert set(next_by_hours) == set(NEXT_HOURS)
+    for hours, entity in next_by_hours.items():
+        attrs_next = entity.extra_state_attributes
+        timestamp_raw = attrs_next[ATTR_TIMESTAMP]
+        if len(future_values) >= hours:
+            expected_average = round(sum(future_values[:hours]) / hours, 1)
+            assert entity.native_value == pytest.approx(expected_average)
+            assert timestamp_raw is not None
+            assert datetime.fromisoformat(timestamp_raw) > now
+        else:
+            assert entity.native_value is None
+            assert timestamp_raw is None
+        assert attrs_next[ATTR_RAW_SOURCE] == "https://example.com/deploy"
 
     wind = next(entity for entity in added if isinstance(entity, sensor.NordpoolWindpowerSensor))
     wind_attrs = wind.extra_state_attributes
     assert wind.native_value == 3500
-    assert len(wind_attrs[ATTR_WIND_FORECAST]) == 2
-    assert wind_attrs[ATTR_WIND_FORECAST][0]["value"] == 3500
+    assert len(wind_attrs[ATTR_WIND_FORECAST]) == 3
+    first_wind_forecast = wind_attrs[ATTR_WIND_FORECAST][0]
+    assert first_wind_forecast["timestamp"] == now.isoformat()
+    assert first_wind_forecast["value"] == 3500
     assert wind_attrs[ATTR_RAW_SOURCE] == "https://example.com/deploy"
     assert ATTR_NEXT_VALID_FROM not in wind_attrs
 
     wind_now = next(entity for entity in added if isinstance(entity, sensor.NordpoolWindpowerNowSensor))
     wind_now_attrs = wind_now.extra_state_attributes
     assert wind_now.native_value == 3500
-    assert wind_now_attrs[ATTR_TIMESTAMP] == forecast_series[0].datetime.isoformat()
+    assert wind_now_attrs[ATTR_TIMESTAMP] == now.isoformat()
     assert wind_now_attrs[ATTR_RAW_SOURCE] == "https://example.com/deploy"
 
     cheapest_entities = [
@@ -158,25 +189,30 @@ async def test_async_setup_entry_registers_entities(hass, enable_custom_integrat
 
     three_hour_sensor = by_duration[3]
     three_attrs = three_hour_sensor.extra_state_attributes
-    expected_start = forecast_series[3].datetime
-    expected_end = forecast_series[5].datetime + timedelta(hours=1)
-    expected_average = round(sum(values[3:6]) / 3, 1)
-
-    assert three_hour_sensor.native_value == expected_average
+    three_window = cheapest_windows[3]
+    assert three_window is not None
+    assert three_hour_sensor.native_value == pytest.approx(round(three_window.average, 1))
     assert three_attrs[ATTR_RAW_SOURCE] == "https://example.com/deploy"
-    assert three_attrs[ATTR_WINDOW_START] == expected_start.isoformat()
-    assert three_attrs[ATTR_WINDOW_END] == expected_end.isoformat()
+    assert three_attrs[ATTR_WINDOW_START] == three_window.start.isoformat()
+    assert three_attrs[ATTR_WINDOW_END] == three_window.end.isoformat()
     assert three_attrs[ATTR_WINDOW_DURATION] == 3
-    assert len(three_attrs[ATTR_WINDOW_POINTS]) == 3
-    assert three_attrs[ATTR_WINDOW_POINTS][0]["value"] == pytest.approx(values[3])
+    assert len(three_attrs[ATTR_WINDOW_POINTS]) == len(three_window.points)
+    first_point_value = three_attrs[ATTR_WINDOW_POINTS][0]["value"]
+    assert first_point_value == pytest.approx(round(three_window.points[0].value, 1))
 
     six_hour_sensor = by_duration[6]
-    assert six_hour_sensor.native_value == round(sum(values[1:7]) / 6, 1)
-    assert len(six_hour_sensor.extra_state_attributes[ATTR_WINDOW_POINTS]) == 6
+    six_attrs = six_hour_sensor.extra_state_attributes
+    six_window = cheapest_windows[6]
+    assert six_window is not None
+    assert six_hour_sensor.native_value == pytest.approx(round(six_window.average, 1))
+    assert len(six_attrs[ATTR_WINDOW_POINTS]) == len(six_window.points)
 
     twelve_hour_sensor = by_duration[12]
-    assert twelve_hour_sensor.native_value == round(sum(values) / len(values), 1)
-    assert len(twelve_hour_sensor.extra_state_attributes[ATTR_WINDOW_POINTS]) == 12
+    twelve_attrs = twelve_hour_sensor.extra_state_attributes
+    twelve_window = cheapest_windows[12]
+    assert twelve_window is not None
+    assert twelve_hour_sensor.native_value == pytest.approx(round(twelve_window.average, 1))
+    assert len(twelve_attrs[ATTR_WINDOW_POINTS]) == len(twelve_window.points)
 
     narrations = {
         entity.extra_state_attributes[ATTR_LANGUAGE]: entity
@@ -216,20 +252,17 @@ async def test_async_setup_entry_handles_missing_wind_data(hass, enable_custom_i
         update_interval=timedelta(minutes=15),
     )
 
-    now = datetime.now(timezone.utc)
-    future_only_series = [_series_point(1, 5.0, now)]
+    now = datetime.now(timezone.utc).replace(minute=0, second=0, microsecond=0)
+    future_only_series = [
+        _series_point(1, 5.0, now),
+        _series_point(2, 6.0, now),
+    ]
     coordinator.async_set_updated_data(
         {
             "price": {
-                "forecast": [
-                    _series_point(0, 4.8, now),
-                    *future_only_series,
-                ],
-                "current": future_only_series[0],
-                "cheapest_windows": {
-                    hours: coordinator._find_cheapest_window(future_only_series, hours)
-                    for hours in CHEAPEST_WINDOW_HOURS
-                },
+                "forecast": future_only_series,
+                "current": None,
+                "cheapest_windows": {hours: None for hours in CHEAPEST_WINDOW_HOURS},
             },
             "windpower": None,
             "narration": {
@@ -265,9 +298,37 @@ async def test_async_setup_entry_handles_missing_wind_data(hass, enable_custom_i
 
     price_now = next(entity for entity in added if isinstance(entity, sensor.NordpoolPriceNowSensor))
     price_now_attrs = price_now.extra_state_attributes
-    assert price_now.native_value == pytest.approx(4.8)
-    assert price_now_attrs[ATTR_TIMESTAMP] == _series_point(0, 4.8, now).datetime.isoformat()
+    assert price_now.native_value is None
+    assert price_now_attrs[ATTR_TIMESTAMP] is None
     assert price_now_attrs[ATTR_RAW_SOURCE] == "https://example.com/deploy"
+
+    price_sensor = next(entity for entity in added if isinstance(entity, sensor.NordpoolPriceSensor))
+    assert price_sensor.native_value is None
+
+    next_price_entities = [
+        entity for entity in added if isinstance(entity, sensor.NordpoolPriceNextHoursSensor)
+    ]
+    next_by_hours: dict[int, sensor.NordpoolPriceNextHoursSensor] = {}
+    for entity in next_price_entities:
+        for hours in NEXT_HOURS:
+            if entity.unique_id.endswith(f"_price_next_{hours}h"):
+                next_by_hours[hours] = entity
+                break
+    assert set(next_by_hours) == set(NEXT_HOURS)
+    first_future = future_only_series[0]
+    for hours, entity in next_by_hours.items():
+        attrs_next = entity.extra_state_attributes
+        if len(future_only_series) >= hours:
+            expected_average = round(
+                sum(point.value for point in future_only_series[:hours]) / hours, 1
+            )
+            assert entity.native_value == pytest.approx(expected_average)
+            assert attrs_next[ATTR_TIMESTAMP] == first_future.datetime.isoformat()
+            assert datetime.fromisoformat(attrs_next[ATTR_TIMESTAMP]) > now
+        else:
+            assert entity.native_value is None
+            assert attrs_next[ATTR_TIMESTAMP] is None
+        assert attrs_next[ATTR_RAW_SOURCE] == "https://example.com/deploy"
 
     wind_sensor = next(entity for entity in added if isinstance(entity, sensor.NordpoolWindpowerSensor))
     assert wind_sensor.native_value is None

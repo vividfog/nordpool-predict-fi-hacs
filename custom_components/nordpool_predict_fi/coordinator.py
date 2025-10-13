@@ -105,7 +105,7 @@ class NordpoolPredictCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         narration_fi, narration_en = await asyncio.gather(narration_fi_task, narration_en_task)
 
         merged_price_series = self._merge_price_series(realized_series, forecast_from_today)
-        
+
         # Find current point from merged series
         current_point = None
         for point in merged_price_series:
@@ -113,8 +113,6 @@ class NordpoolPredictCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 current_point = point
             else:
                 break
-        if current_point is None and merged_price_series:
-            current_point = merged_price_series[0]
         
         # Calculate cheapest windows using the full merged series
         cheapest_windows = {
@@ -145,7 +143,12 @@ class NordpoolPredictCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             wind_series = self._series_from_rows(wind_rows)
             # Filter wind data to show from today midnight onwards
             wind_from_today = [point for point in wind_series if point.datetime >= data_cutoff]
-            wind_current = wind_from_today[0] if wind_from_today else None
+            wind_current = None
+            for point in wind_from_today:
+                if point.datetime <= now:
+                    wind_current = point
+                else:
+                    break
             data["windpower"] = {
                 "series": wind_from_today,
                 "current": wind_current,
