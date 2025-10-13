@@ -43,6 +43,17 @@ content: |
 
 Both narration sensors expose `language`, `summary`, `content`, and `source_url` attributes so you can automate announcements, notifications, or alternative Lovelace cards.
 
+### Short summary (ingress)
+
+If you only want the short summary, render the sensor state (falls back from Finnish to English):
+
+```yaml
+type: markdown
+content: |
+  {{ states('sensor.nordpool_predict_fi_narration_fi')
+     or states('sensor.nordpool_predict_fi_narration_en') }}
+```
+
 ---
 
 ## Installation (HACS)

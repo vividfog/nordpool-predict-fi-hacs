@@ -74,10 +74,10 @@
         "name": "Tuulivoima nyt"
       },
       "nordpool_predict_fi__narration_fi": {
-        "name": "Selostus suomeksi"
+        "name": "Narration (FI)"
       },
       "nordpool_predict_fi__narration_en": {
-        "name": "Selostus englanniksi"
+        "name": "Narration (EN)"
       }
     }
   }

@@ -38,6 +38,6 @@ CHEAPEST_WINDOW_HOURS: tuple[int, ...] = (3, 6, 12)
 NEXT_HOURS: tuple[int, ...] = (1, 3, 6, 12)
 NARRATION_LANGUAGES: tuple[str, ...] = ("fi", "en")
 NARRATION_LANGUAGE_NAMES: dict[str, str] = {
-    "fi": "Finnish",
-    "en": "English",
+    "fi": "FI",
+    "en": "EN",
 }

@@ -74,10 +74,10 @@
         "name": "Wind Power Now"
       },
       "nordpool_predict_fi__narration_fi": {
-        "name": "Narration (Finnish)"
+        "name": "Narration (FI)"
       },
       "nordpool_predict_fi__narration_en": {
-        "name": "Narration (English)"
+        "name": "Narration (EN)"
       }
     }
   }
