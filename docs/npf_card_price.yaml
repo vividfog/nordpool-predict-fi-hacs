@@ -173,7 +173,7 @@ series:
       in_chart: false
       legend_value: false
       header_color_threshold: true
-  - entity: sensor.nordpool_predict_fi_windpower
+  - entity: sensor.nordpool_predict_fi_windpower_now
     name: Tuulivoima
     float_precision: 0
     color: skyblue
