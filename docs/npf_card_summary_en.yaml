@@ -2,4 +2,4 @@ type: markdown
 content: |
   ### Nordpool Forecast
   {{ states('sensor.nordpool_predict_fi_narration_en') }}
-text_only: true
+

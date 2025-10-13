@@ -1,5 +1,4 @@
 type: markdown
 content: |
-  ### Nordpool-ennuste
+  ## Pörssisähkön hintaennuste
   {{ state_attr('sensor.nordpool_predict_fi_narration_fi', 'content') }}
-text_only: true
