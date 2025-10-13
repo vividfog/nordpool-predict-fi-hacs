@@ -89,6 +89,8 @@
 - Regions are sparse two-level only: top `#region setup|coordinator|sensor`; second `#region _update|_fetch|_parse|_time|_windows|_narration|_merge`; no third-level (`__...`), avoid micro-markers, goal is zoomed-out map clarity, omit endregion, ASCII only, comments before `from __future__` allowed.
 - Versioning: CalVer `YYYY.MM.DD.N`; keep `custom_components/nordpool_predict_fi/manifest.json:version` and `pyproject.toml:version` identical; bump after user-visible changes once tests pass; egg-info mirrors on build.
 - Comments: state intent and current facts only; no changelog-style A→B, no history or TODOs.
+- Changelog: Common Changelog; daily-only (YYYY-MM-DD), no Unreleased; group by Added/Changed/Deprecated/Removed/Fixed/Security; concise user-focused bullets (consolidate commits, note breaking/migrations).
+- Code style: PEP 8; explicit imports; clear, intent‑revealing names; small single‑purpose functions; Functional Core, Imperative Shell; typed public APIs; simplicity over cleverness.
 
 ## Cautions
 - Do not block event loop; all I/O must be awaited.
