@@ -1,7 +1,7 @@
 {
   "domain": "nordpool_predict_fi",
   "name": "Nordpool Predict FI",
-  "version": "2025.10.14.1",
+  "version": "2025.10.14.2",
   "documentation": "https://github.com/vividfog/nordpool-predict-fi-hacs",
   "issue_tracker": "https://github.com/vividfog/nordpool-predict-fi-hacs/issues",
   "dependencies": [],
