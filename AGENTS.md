@@ -84,7 +84,8 @@
 - Document UI changes in both `README.md` and `AGENTS.md`; reference card YAML when altering forecast attributes to avoid breaking dashboards.
 
 ## Style
-- Use 1-2 word region labels. Depth is shown by underscores: `#region setup` or `#region data_load` (top), `#region _step` or `#region _validate_input` (nested), `#region __loop` or `#region __check_format` (deep). The goal is a clean, readable hierarchy in the zoomed-out VS Code map where underscores visually indicate nesting level. Always omit endregion.
+- Regions are sparse two-level only: top `#region setup|coordinator|sensor`; second `#region _update|_fetch|_parse|_time|_windows|_narration|_merge`; no third-level (`__...`), avoid micro-markers, goal is zoomed-out map clarity, omit endregion, ASCII only, comments before `from __future__` allowed.
+- Versioning: keep `custom_components/nordpool_predict_fi/manifest.json:version`, `pyproject.toml:version`, and `nordpool_predict_fi_hacs.egg-info/PKG-INFO:Version` identical; format `YYYY.MM.DD.N`; bump after user-visible changes once todo list cleared and tests pass.
 
 ## Cautions
 - Do not block event loop; all I/O must be awaited.
