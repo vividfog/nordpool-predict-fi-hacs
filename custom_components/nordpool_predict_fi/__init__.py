@@ -11,7 +11,17 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.typing import ConfigType
 from homeassistant.helpers import entity_registry as er
 
-from .const import CONF_BASE_URL, CONF_UPDATE_INTERVAL, DATA_COORDINATOR, DATA_UNSUB_LISTENER, DEFAULT_BASE_URL, DEFAULT_UPDATE_INTERVAL, DEFAULT_UPDATE_INTERVAL_MINUTES, DOMAIN, PLATFORMS
+from .const import (
+    CONF_BASE_URL,
+    CONF_UPDATE_INTERVAL,
+    DATA_COORDINATOR,
+    DATA_UNSUB_LISTENER,
+    DEFAULT_BASE_URL,
+    DEFAULT_UPDATE_INTERVAL,
+    DEFAULT_UPDATE_INTERVAL_MINUTES,
+    DOMAIN,
+    PLATFORMS,
+)
 from .coordinator import NordpoolPredictCoordinator
 
 type NordpoolConfigEntry = ConfigEntry

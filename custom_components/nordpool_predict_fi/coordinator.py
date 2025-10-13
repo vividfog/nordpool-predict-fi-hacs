@@ -68,6 +68,15 @@ class NordpoolPredictCoordinator(DataUpdateCoordinator[dict[str, Any]]):
     def base_url(self) -> str:
         return self._base_url
 
+    @property
+    def current_time(self) -> datetime:
+        """Provide a testable current time hook.
+
+        Returns UTC now by default. Tests may monkeypatch this attribute on the
+        instance to freeze time without touching internal helpers.
+        """
+        return self._current_time()
+
     #region _update
     async def _async_update_data(self) -> dict[str, Any]:
         session = async_get_clientsession(self.hass)

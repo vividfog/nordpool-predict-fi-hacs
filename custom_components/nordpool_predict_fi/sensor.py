@@ -145,37 +145,37 @@ class NordpoolBaseSensor(CoordinatorEntity[NordpoolPredictCoordinator], SensorEn
         return None
 
     def _average_next_hours(self, hours: int) -> tuple[float | None, datetime | None]:
-        """Calculate average price for the next X hours starting now.
+        """Average price over the next X hours starting at next full hour (T+1).
 
-        Returns a tuple of (average_price, start_timestamp).
-        If insufficient data points, returns (None, None).
+        Returns (average_price, start_timestamp). If any contiguous hour from
+        T+1..T+X is missing, returns (None, None).
         """
         series = self._price_series()
         if not series:
             return None, None
 
-        now = getattr(self.coordinator, "current_time", None)
-        if now is None:
-            now = datetime.now(timezone.utc)
+        now = getattr(self.coordinator, "current_time", None) or datetime.now(timezone.utc)
+        start_anchor = now.replace(minute=0, second=0, microsecond=0) + timedelta(hours=1)
 
-        # Collect points strictly after now for the averaging period
-        future_points = []
-        for point in series:
-            if point.datetime > now:
-                future_points.append(point)
-                if len(future_points) >= hours:
-                    break
-
-        if len(future_points) < hours:
-            # Insufficient data points
+        # Find index of the first point exactly at the next full hour
+        try:
+            start_idx = next(i for i, p in enumerate(series) if p.datetime == start_anchor)
+        except StopIteration:
             return None, None
 
-        # Take exactly 'hours' number of points starting from the first point strictly after now
-        avg_points = future_points[:hours]
-        average = sum(p.value for p in avg_points) / len(avg_points)
-        start_time = avg_points[0].datetime
+        # Verify we have 'hours' contiguous hourly points starting at start_anchor
+        points: list[SeriesPoint] = []
+        for i in range(hours):
+            idx = start_idx + i
+            if idx >= len(series):
+                return None, None
+            point = series[idx]
+            if point.datetime != start_anchor + timedelta(hours=i):
+                return None, None
+            points.append(point)
 
-        return average, start_time
+        average = sum(p.value for p in points) / hours
+        return average, start_anchor
 
     @staticmethod
     def _rounded_value(value: float, decimals: int | None) -> float | int:
