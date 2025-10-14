@@ -9,11 +9,40 @@ header:
 graph_span: 7d
 experimental:
   color_threshold: true
+apex_config:
+  chart:
+    height: 256
+    toolbar:
+      show: false
+  grid:
+    strokeDashArray: 3
+  legend:
+    show: false
+    customLegendItems:
+      - Sähkön hinta (¢/kWh)
+      - Tuulivoima (GW)
+  xaxis:
+    type: datetime
+    tickAmount: 7
+    tickPlacement: on
+    labels:
+      hideOverlappingLabels: false
+      formatter: |
+        EVAL:function (value, timestamp) {
+          const ts = timestamp || value;
+          const date = new Date(ts);
+          if (Number.isNaN(date.getTime())) return value;
+          const days = ['su', 'ma', 'ti', 'ke', 'to', 'pe', 'la'];
+          return days[date.getDay()];
+        }
+  tooltip:
+    enabled: false
+  markers:
+    size: 0
 span:
   start: hour
 now:
   show: true
-  color: "#1c88fb"
   label: Nyt
 series:
   - entity: sensor.nordpool_predict_fi_price
@@ -65,6 +94,44 @@ series:
     data_generator: |
       const data = entity.attributes.forecast || [];
       return data.map((item) => [item.timestamp, item.value]);
+    show:
+      in_chart: true
+      in_header: false
+      in_legend: false
+      legend_value: false
+  - entity: sensor.nordpool_predict_fi_price
+    name: Ennuste
+    type: line
+    yaxis_id: price
+    curve: straight
+    stroke_width: 1
+    stroke_dash: 3
+    color: red
+    opacity: 1
+    extend_to: false
+    data_generator: >
+      const fs =
+      hass.states['sensor.nordpool_predict_fi_price']?.attributes?.forecast_start;
+
+      const x = fs ? Date.parse(fs) : NaN;
+
+      if (!Number.isFinite(x)) return [];
+
+      const data = entity.attributes.forecast || [];
+
+      let min = Infinity, max = -Infinity;
+
+      for (const i of data) {
+        const v = Number(i.value);
+        if (Number.isFinite(v)) { if (v < min) min = v; if (v > max) max = v; }
+      }
+
+      if (!Number.isFinite(min) || !Number.isFinite(max)) { min = 0; max = 1; }
+
+      // Add a null point at x+1 ms to stop the path from continuing
+      horizontally.
+
+      return [[x, min], [x, max], [x + 1, null]];
     show:
       in_chart: true
       in_header: false
@@ -198,32 +265,3 @@ yaxis:
       forceNiceScale: true
       title:
         text: Tuulivoima (GW)
-apex_config:
-  chart:
-    height: 256
-    toolbar:
-      show: false
-  grid:
-    strokeDashArray: 3
-  legend:
-    show: false
-    customLegendItems:
-      - Sähkön hinta (¢/kWh)
-      - Tuulivoima (GW)
-  xaxis:
-    type: datetime
-    labels:
-      formatter: |
-        EVAL:function (value, timestamp) {
-          const ts = timestamp || value;
-          const date = new Date(ts);
-          if (Number.isNaN(date.getTime())) {
-            return value;
-          }
-          const days = ['su', 'ma', 'ti', 'ke', 'to', 'pe', 'la'];
-          return days[date.getDay()];
-        }
-  tooltip:
-    enabled: false
-  markers:
-    size: 0
