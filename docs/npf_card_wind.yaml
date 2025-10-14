@@ -9,11 +9,40 @@ header:
 graph_span: 7d
 experimental:
   color_threshold: true
+apex_config:
+  chart:
+    height: 256
+    toolbar:
+      show: false
+  grid:
+    strokeDashArray: 3
+  legend:
+    show: false
+    customLegendItems:
+      - Tuulivoima (GW)
+      - Ennustettu hinta (¢/kWh)
+  xaxis:
+    type: datetime
+    tickAmount: 7
+    tickPlacement: on
+    labels:
+      hideOverlappingLabels: false
+      formatter: |
+        EVAL:function (value, timestamp) {
+          const ts = timestamp || value;
+          const date = new Date(ts);
+          if (Number.isNaN(date.getTime())) return value;
+          const days = ['su', 'ma', 'ti', 'ke', 'to', 'pe', 'la'];
+          return days[date.getDay()];
+        }
+  tooltip:
+    enabled: false
+  markers:
+    size: 0
 span:
   start: hour
 now:
   show: true
-  color: "#1c88fb"
   label: Nyt
 series:
   - entity: sensor.nordpool_predict_fi_windpower
@@ -211,32 +240,3 @@ yaxis:
       forceNiceScale: true
       title:
         text: Hinta (¢/kWh)
-apex_config:
-  chart:
-    height: 256
-    toolbar:
-      show: false
-  grid:
-    strokeDashArray: 3
-  legend:
-    show: false
-    customLegendItems:
-      - Tuulivoima (GW)
-      - Ennustettu hinta (¢/kWh)
-  xaxis:
-    type: datetime
-    labels:
-      formatter: |
-        EVAL:function (value, timestamp) {
-          const ts = timestamp || value;
-          const date = new Date(ts);
-          if (Number.isNaN(date.getTime())) {
-            return value;
-          }
-          const days = ['su', 'ma', 'ti', 'ke', 'to', 'pe', 'la'];
-          return days[date.getDay()];
-        }
-  tooltip:
-    enabled: false
-  markers:
-    size: 0
