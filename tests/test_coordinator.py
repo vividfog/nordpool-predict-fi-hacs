@@ -108,6 +108,7 @@ async def test_coordinator_parses_series(hass, enable_custom_integrations, monke
     # Current point is now found from merged series (realized + forecast)
     # At 11:00 UTC (now), the realized price is 5.0 + 11 = 16.0
     assert price_section["current"].value == pytest.approx(16.0)
+    assert price_section["forecast_start"] == datetime(2024, 1, 1, 13, 0, tzinfo=timezone.utc)
     assert price_section["forecast"][0].datetime == datetime(2024, 1, 1, 0, 0, tzinfo=timezone.utc)
     assert price_section["forecast"][0].value == pytest.approx(5.0)
     assert price_section["forecast"][12].value == pytest.approx(17.0)
@@ -194,6 +195,7 @@ async def test_coordinator_merges_realized_and_forecast(
     assert price_section["forecast"][4].value == pytest.approx(14.0)  # Last realized
     assert price_section["forecast"][5].datetime == datetime(2024, 1, 1, 5, 0, tzinfo=timezone.utc)
     assert price_section["forecast"][5].value == pytest.approx(5.0)  # Forecast starts
+    assert price_section["forecast_start"] == datetime(2024, 1, 1, 5, 0, tzinfo=timezone.utc)
     assert price_section["forecast"][-1].datetime == datetime(2024, 1, 4, 23, 0, tzinfo=timezone.utc)
     # Current point is at or before now (15:00 Helsinki = 13:00 UTC) from merged series
     # At 13:00 UTC, the forecast value is 13.0
@@ -247,6 +249,7 @@ async def test_coordinator_current_none_when_no_past_points(
     price_section = data["price"]
     assert price_section["current"] is None
     assert price_section["forecast"][0].datetime == future_start
+    assert price_section["forecast_start"] == future_start
     wind_section = data["windpower"]
     assert wind_section is not None
     assert wind_section["current"] is None

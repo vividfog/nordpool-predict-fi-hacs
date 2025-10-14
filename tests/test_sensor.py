@@ -9,6 +9,7 @@ from pytest_homeassistant_custom_component.common import MockConfigEntry
 from custom_components.nordpool_predict_fi import sensor
 from custom_components.nordpool_predict_fi.const import (
     ATTR_FORECAST,
+    ATTR_FORECAST_START,
     ATTR_LANGUAGE,
     ATTR_NARRATION_CONTENT,
     ATTR_NARRATION_SUMMARY,
@@ -64,6 +65,7 @@ async def test_async_setup_entry_registers_entities(hass, enable_custom_integrat
         _series_point(index + 1, value, now) for index, value in enumerate(future_values)
     ]
     merged_price_series = [current_point, *forecast_series]
+    forecast_start = forecast_series[0].datetime
     cheapest_windows = {
         hours: coordinator._find_cheapest_window(merged_price_series, hours)
         for hours in CHEAPEST_WINDOW_HOURS
@@ -87,6 +89,7 @@ async def test_async_setup_entry_registers_entities(hass, enable_custom_integrat
                 "forecast": merged_price_series,
                 "current": current_point,
                 "cheapest_windows": cheapest_windows,
+                "forecast_start": forecast_start,
             },
             "windpower": {
                 "series": [
@@ -137,6 +140,7 @@ async def test_async_setup_entry_registers_entities(hass, enable_custom_integrat
     attrs = price.extra_state_attributes
     assert price.native_value == pytest.approx(round(current_point.value, 1))
     assert attrs[ATTR_FORECAST][0]["value"] == pytest.approx(round(current_point.value, 1))
+    assert attrs[ATTR_FORECAST_START] == forecast_start.isoformat()
     assert attrs[ATTR_RAW_SOURCE] == "https://example.com/deploy"
     assert ATTR_NEXT_VALID_FROM not in attrs
 
@@ -277,12 +281,14 @@ async def test_async_setup_entry_handles_missing_wind_data(hass, enable_custom_i
         _series_point(1, 5.0, now),
         _series_point(2, 6.0, now),
     ]
+    forecast_start = future_only_series[0].datetime
     coordinator.async_set_updated_data(
         {
             "price": {
                 "forecast": future_only_series,
                 "current": None,
                 "cheapest_windows": {hours: None for hours in CHEAPEST_WINDOW_HOURS},
+                "forecast_start": forecast_start,
             },
             "windpower": None,
             "narration": {
@@ -314,6 +320,7 @@ async def test_async_setup_entry_handles_missing_wind_data(hass, enable_custom_i
     assert sum(isinstance(entity, sensor.NordpoolWindpowerSensor) for entity in added) == 1
     assert sum(isinstance(entity, sensor.NordpoolWindpowerNowSensor) for entity in added) == 1
     attrs = next(entity for entity in added if isinstance(entity, sensor.NordpoolPriceSensor)).extra_state_attributes
+    assert attrs[ATTR_FORECAST_START] == forecast_start.isoformat()
     assert ATTR_NEXT_VALID_FROM not in attrs
 
     price_now = next(entity for entity in added if isinstance(entity, sensor.NordpoolPriceNowSensor))
@@ -394,4 +401,3 @@ async def test_async_setup_entry_handles_missing_wind_data(hass, enable_custom_i
         sensor.NordpoolNarrationSensor,
     )
     assert all(isinstance(entity, allowed_types) for entity in added)
-

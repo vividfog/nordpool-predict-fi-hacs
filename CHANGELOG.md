@@ -5,11 +5,13 @@ All notable changes to this project are documented here. This project follows th
 ## 2025-10-14
 ### Added
 - Lovelace card snippets for narration and summaries.
+- Price sensor `forecast_start` attribute for marklining the forecast boundary.
 
 ### Changed
 - Automatic entity ID migration for narration and windpower sensors.
 - Translations updated for en, fi, sv.
 - Headings/styles and chart cards refined for clarity.
+- Price ApexCharts example now renders a markline at the forecast transition.
 
 ### Fixed
 - Time semantics: "now" uses the latest sample at or before current time; "next X" windows start at the next full hour and exclude the current hour; show unknown when no past sample exists.

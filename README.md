@@ -60,6 +60,7 @@ The host needs tzdata with the `Europe/Helsinki` zone. If that package is missin
 
 - All data (price forecasts, wind power, and realized prices) is shown from beginning of today (Helsinki time) onwards.
 - Sähkötin CSV data for the current Helsinki day is merged with Nordpool Predict FI forecasts, so the `forecast` attribute already contains realized + predicted prices in one timeline.
+- The price sensor also exposes `forecast_start`, the first forecast hour after realized data, so dashboards can mark where predictions kick in.
 - Cheapest windows (3h, 6h, 12h) work across the entire available data, using both realized and forecast prices to find the most economical periods throughout the week.
 - All cheapest window calculations are done in the coordinator and exposed both as sensor states (average price) and attributes for automations.
 

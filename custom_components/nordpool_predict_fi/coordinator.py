@@ -136,6 +136,7 @@ class NordpoolPredictCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             else:
                 break
         
+        price_forecast_start = self._forecast_start_from_segments(realized_series, forecast_from_today)
 
         # Calculate cheapest windows using the full merged series
         cheapest_windows = {
@@ -151,6 +152,7 @@ class NordpoolPredictCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 "current": current_point,
                 "cheapest_windows": cheapest_windows,
                 "now": now,
+                "forecast_start": price_forecast_start,
             },
             "windpower": None,
             "narration": {
@@ -400,6 +402,22 @@ class NordpoolPredictCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 return False
             previous = current.datetime
         return True
+
+    @staticmethod
+    
+    def _forecast_start_from_segments(
+        realized_series: list[SeriesPoint],
+        forecast_series: list[SeriesPoint],
+    ) -> datetime | None:
+        if not forecast_series:
+            return None
+        if not realized_series:
+            return forecast_series[0].datetime
+        last_realized = realized_series[-1].datetime
+        for point in forecast_series:
+            if point.datetime > last_realized:
+                return point.datetime
+        return None
 
     #region _narration
     def _build_narration_section(self, suffix: str, content: str | None) -> dict[str, str] | None:

@@ -21,6 +21,7 @@ DATA_UNSUB_LISTENER = "unsub_listener"
 
 #region _attrs
 ATTR_FORECAST = "forecast"
+ATTR_FORECAST_START = "forecast_start"
 ATTR_RAW_SOURCE = "raw_source"
 ATTR_WIND_FORECAST = "windpower_forecast"
 ATTR_NEXT_VALID_FROM = "next_valid_from"

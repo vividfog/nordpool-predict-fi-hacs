@@ -15,6 +15,7 @@ from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from .const import (
     ATTR_FORECAST,
+    ATTR_FORECAST_START,
     ATTR_LANGUAGE,
     ATTR_NARRATION_CONTENT,
     ATTR_NARRATION_SUMMARY,
@@ -205,9 +206,15 @@ class NordpoolPriceSensor(NordpoolBaseSensor):
         if not data:
             return None
 
+        forecast_start = data.get("forecast_start")
+        if isinstance(forecast_start, datetime):
+            forecast_start_iso = forecast_start.isoformat()
+        else:
+            forecast_start_iso = None
         forecast = self._build_forecast_attributes(data.get("forecast", []), decimals=1)
         result = {
             ATTR_FORECAST: forecast,
+            ATTR_FORECAST_START: forecast_start_iso,
             ATTR_RAW_SOURCE: self.coordinator.base_url,
         }
         return result
