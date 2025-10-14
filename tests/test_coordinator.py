@@ -465,3 +465,24 @@ def test_extract_first_table_and_section_includes_table(hass, enable_custom_inte
     section = coordinator._build_narration_section("narration_en.md", content)
     assert section is not None
     assert section["table"].startswith("|")
+
+
+def test_extract_first_table_skips_stray_pipe_and_requires_alignment(hass, enable_custom_integrations) -> None:
+    coordinator = _coordinator(hass)
+    content = (
+        "Intro with a stray pipe line that is not a table.\n"
+        "| this is not a table header because it lacks alignment next\n\n"
+        "| Col A | Col B |\n"
+        "|:-----:|------:|\n"
+        "| a1    |   b1  |\n"
+        "| a2    |   b2  |\n\n"
+        "Tail paragraph.\n"
+    )
+
+    table = coordinator._extract_first_table(content)
+    assert table is not None
+    # Ensure the returned block starts at the true header with alignment
+    lines = [ln for ln in table.splitlines() if ln.strip()]
+    assert lines[0].startswith("| Col A | Col B |")
+    # Two data rows + header + alignment
+    assert len(lines) == 4
