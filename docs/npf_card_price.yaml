@@ -9,17 +9,6 @@ header:
 graph_span: 7d
 experimental:
   color_threshold: true
-apex_config:
-  annotations:
-    xaxis:
-      - x: "EVAL: (() => { const value = hass.states['sensor.nordpool_predict_fi_price']?.attributes?.forecast_start; return value ? dayjs(value).valueOf() : null; })()"
-        borderColor: "#8c8c8c"
-        strokeDashArray: 4
-        label:
-          text: Ennuste alkaa
-          borderColor: "#8c8c8c"
-          style:
-            color: "#8c8c8c"
 span:
   start: hour
 now:
