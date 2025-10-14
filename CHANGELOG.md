@@ -4,7 +4,6 @@ All notable changes to this project are documented here. This project follows th
 
 ## 2025-10-14
 ### Added
-- Narration table sensors (FI/EN) with summary table attributes.
 - Lovelace card snippets for narration and summaries.
 
 ### Changed

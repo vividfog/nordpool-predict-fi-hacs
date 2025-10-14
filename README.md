@@ -85,8 +85,7 @@ Narration and summaries (no chart):
 - [`npf_card_narration_en.yaml`](docs/npf_card_narration_en.yaml) — full English narration (Markdown `content`).
 - [`npf_card_summary_fi.yaml`](docs/npf_card_summary_fi.yaml) — short Finnish summary (sensor state).
 - [`npf_card_summary_en.yaml`](docs/npf_card_summary_en.yaml) — short English summary (sensor state).
- - [`npf_card_summary_table_fi.yaml`](docs/npf_card_summary_table_fi.yaml) — Finnish weekly summary table only (Markdown from sensor attribute).
- - [`npf_card_summary_table_en.yaml`](docs/npf_card_summary_table_en.yaml) — English weekly summary table only (Markdown from sensor attribute).
+ 
 
 ---
 

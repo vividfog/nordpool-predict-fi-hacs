@@ -115,7 +115,6 @@ async def test_async_setup_entry_registers_entities(hass, enable_custom_integrat
         + 2  # NordpoolWindpowerSensor and NordpoolWindpowerNowSensor
         + len(CHEAPEST_WINDOW_HOURS)  # Cheapest window sensors
         + len(NARRATION_LANGUAGES)  # Narration sensors
-        + len(NARRATION_LANGUAGES)  # Narration table sensors
     )
     assert len(added) == expected_entity_count
     assert sum(isinstance(entity, sensor.NordpoolPriceSensor) for entity in added) == 1
@@ -123,7 +122,17 @@ async def test_async_setup_entry_registers_entities(hass, enable_custom_integrat
     assert sum(isinstance(entity, sensor.NordpoolWindpowerSensor) for entity in added) == 1
     assert sum(isinstance(entity, sensor.NordpoolWindpowerNowSensor) for entity in added) == 1
     assert sum(isinstance(entity, sensor.NordpoolNarrationSensor) for entity in added) == len(NARRATION_LANGUAGES)
-    assert sum(isinstance(entity, sensor.NordpoolNarrationTableSensor) for entity in added) == len(NARRATION_LANGUAGES)
+    # Assert only expected entity classes are present
+    allowed_types = (
+        sensor.NordpoolPriceSensor,
+        sensor.NordpoolPriceNowSensor,
+        sensor.NordpoolPriceNextHoursSensor,
+        sensor.NordpoolWindpowerSensor,
+        sensor.NordpoolWindpowerNowSensor,
+        sensor.NordpoolCheapestWindowSensor,
+        sensor.NordpoolNarrationSensor,
+    )
+    assert all(isinstance(entity, allowed_types) for entity in added)
     price = next(entity for entity in added if isinstance(entity, sensor.NordpoolPriceSensor))
     attrs = price.extra_state_attributes
     assert price.native_value == pytest.approx(round(current_point.value, 1))
@@ -233,18 +242,16 @@ async def test_async_setup_entry_registers_entities(hass, enable_custom_integrat
     assert en_attrs[ATTR_NARRATION_CONTENT] == narration_section["en"]["content"]
     assert en_attrs[ATTR_SOURCE_URL] == narration_section["en"]["source"]
 
-    # Narration table sensors should reflect table presence (count rows) and expose markdown in attributes
-    table_sensors = {
-        entity.extra_state_attributes[ATTR_LANGUAGE]: entity
-        for entity in added
-        if isinstance(entity, sensor.NordpoolNarrationTableSensor)
-    }
-    # No table present in provided content -> sensors should be None/empty
-    for lang, tbl in table_sensors.items():
-        assert tbl.native_value in (None, 0)
-        attrs = tbl.extra_state_attributes
-        # No table attribute since content lacked a table
-        assert attrs.get("summary_table_markdown") in (None, "")
+    allowed_types = (
+        sensor.NordpoolPriceSensor,
+        sensor.NordpoolPriceNowSensor,
+        sensor.NordpoolPriceNextHoursSensor,
+        sensor.NordpoolWindpowerSensor,
+        sensor.NordpoolWindpowerNowSensor,
+        sensor.NordpoolCheapestWindowSensor,
+        sensor.NordpoolNarrationSensor,
+    )
+    assert all(isinstance(e, allowed_types) for e in added)
 
 
 @pytest.mark.asyncio
@@ -293,7 +300,6 @@ async def test_async_setup_entry_handles_missing_wind_data(hass, enable_custom_i
         6  # price sensors + next hour sensors
         + 2  # wind sensors still registered
         + len(CHEAPEST_WINDOW_HOURS)
-        + len(NARRATION_LANGUAGES)
         + len(NARRATION_LANGUAGES)
     )
 
@@ -377,80 +383,15 @@ async def test_async_setup_entry_handles_missing_wind_data(hass, enable_custom_i
         assert attrs[ATTR_RAW_SOURCE] == "https://example.com/deploy"
         assert ATTR_NARRATION_CONTENT not in attrs
         assert ATTR_SOURCE_URL not in attrs
-    narration_table_entities = [
-        entity for entity in added if isinstance(entity, sensor.NordpoolNarrationTableSensor)
-    ]
-    assert len(narration_table_entities) == len(NARRATION_LANGUAGES)
-    for entity in narration_table_entities:
-        attrs = entity.extra_state_attributes
-        assert attrs[ATTR_LANGUAGE] in NARRATION_LANGUAGES
-        assert attrs[ATTR_RAW_SOURCE] == "https://example.com/deploy"
-
-
-@pytest.mark.asyncio
-async def test_narration_table_sensor_extracts_table(hass, enable_custom_integrations) -> None:
-    entry = MockConfigEntry(
-        domain=DOMAIN,
-        unique_id=DOMAIN,
-        title="Nordpool Predict FI",
-        data={},
+    # Only expected entity classes were created
+    allowed_types = (
+        sensor.NordpoolPriceSensor,
+        sensor.NordpoolPriceNowSensor,
+        sensor.NordpoolPriceNextHoursSensor,
+        sensor.NordpoolWindpowerSensor,
+        sensor.NordpoolWindpowerNowSensor,
+        sensor.NordpoolCheapestWindowSensor,
+        sensor.NordpoolNarrationSensor,
     )
-    entry.add_to_hass(hass)
+    assert all(isinstance(entity, allowed_types) for entity in added)
 
-    coordinator = NordpoolPredictCoordinator(
-        hass=hass,
-        entry_id=entry.entry_id,
-        base_url="https://example.com/deploy",
-        update_interval=timedelta(minutes=15),
-    )
-
-    table_md = (
-        "| H | A |\n"
-        "|:--|:-:|\n"
-        "| r1 | c1 |\n"
-        "| r2 | c2 |\n"
-    )
-    content = f"Intro\n\n{table_md}\n\nTail\n"
-
-    coordinator.async_set_updated_data(
-        {
-            "price": {
-                "forecast": [],
-                "current": None,
-                "cheapest_windows": {hours: None for hours in CHEAPEST_WINDOW_HOURS},
-            },
-            "windpower": None,
-            "narration": {
-                "fi": {
-                    "summary": "Tiivistelmä.",
-                    "content": content,
-                    "table": table_md,
-                    "source": "https://example.com/deploy/narration.md",
-                },
-                "en": {
-                    "summary": "Summary.",
-                    "content": content,
-                    "table": table_md,
-                    "source": "https://example.com/deploy/narration_en.md",
-                },
-            },
-        }
-    )
-
-    hass.data.setdefault(DOMAIN, {})
-    hass.data[DOMAIN][entry.entry_id] = {DATA_COORDINATOR: coordinator}
-
-    added: list[sensor.NordpoolBaseSensor] = []
-
-    def _add_entities(new_entities: list[Any], update_before_add: bool = False) -> None:
-        added.extend(new_entities)
-
-    await sensor.async_setup_entry(hass, entry, _add_entities)
-
-    table_sensors = [e for e in added if isinstance(e, sensor.NordpoolNarrationTableSensor)]
-    assert len(table_sensors) == 2
-    for tbl in table_sensors:
-        # 2 data rows (excluding header + alignment)
-        assert tbl.native_value == 2
-        attrs = tbl.extra_state_attributes
-        assert attrs.get("summary_table_markdown", "").startswith("|")

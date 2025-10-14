@@ -409,11 +409,9 @@ class NordpoolPredictCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         if not normalized:
             return None
         summary = self._build_summary(normalized)
-        table = self._extract_first_table(normalized) or ""
         return {
             "content": normalized,
             "summary": summary,
-            "table": table,
             "source": self._compose_url(suffix),
         }
 
@@ -434,80 +432,7 @@ class NordpoolPredictCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             return f"{compact[:max_content_length].rstrip()}{SUMMARY_ELLIPSIS}"
         return ""
 
-    @staticmethod
-    def _extract_first_table(content: str) -> str | None:
-        """Return the first well-formed Markdown table (header + alignment + rows).
-
-        A Markdown table is detected by:
-        - header line: starts with '|', and contains at least one column separator
-        - alignment line: the next non-empty line consists of pipes with `-` and optional `:`
-        - data rows: contiguous lines starting with '|' (allowing spaces) until a non-table line
-
-        This avoids accidentally capturing stray lines that begin with '|' but are not tables,
-        and stops precisely at the end of the table block.
-        """
-        lines = content.splitlines()
-
-        def is_table_header(line: str) -> bool:
-            s = line.lstrip()
-            if not s.startswith("|"):
-                return False
-            # Header should have at least two pipes to imply two columns
-            return s.count("|") >= 2
-
-        def is_alignment(line: str) -> bool:
-            s = line.strip()
-            if not s.startswith("|"):
-                return False
-            # A sequence like | :--- | ---: | :--: |
-            # Accepts variable spaces around segments.
-            parts = [p.strip() for p in s.split("|")]
-            # Leading/trailing splits produce empty parts; require at least 3 non-empty (| seg |)
-            segs = [p for p in parts if p]
-            if len(segs) < 2:
-                return False
-            for seg in segs:
-                # allow combinations of colons and 3+ dashes with optional spaces
-                core = seg.replace(" ", "")
-                if not core:
-                    return False
-                # must be something like :---, ---:, :---:, or ---
-                # ensure at least 3 dashes exist regardless of colons at ends
-                dashes = core.strip(":")
-                # Be permissive: accept 1 or more dashes to accommodate loose authoring
-                if len(dashes) < 1 or any(ch != '-' for ch in dashes):
-                    return False
-            return True
-
-        def is_table_row(line: str) -> bool:
-            # Data rows commonly start with '|' and may or may not end with '|'. Be permissive.
-            return line.lstrip().startswith("|")
-
-        n = len(lines)
-        i = 0
-        while i < n:
-            line = lines[i]
-            if not is_table_header(line):
-                i += 1
-                continue
-            # find next non-empty line for alignment
-            j = i + 1
-            while j < n and not lines[j].strip():
-                j += 1
-            if j >= n or not is_alignment(lines[j]):
-                # Not a proper table header; continue scanning after current line
-                i += 1
-                continue
-            # Collect header, alignment, then contiguous data rows
-            block: list[str] = [lines[i].rstrip("\r\n"), lines[j].rstrip("\r\n")]
-            k = j + 1
-            while k < n and lines[k].strip() and is_table_row(lines[k]):
-                block.append(lines[k].rstrip("\r\n"))
-                k += 1
-            if len(block) >= 2:
-                return "\n".join(block)
-            i = k
-        return None
+    
 
     
     def _parse_sahkotin_csv(self, csv_text: str, earliest: datetime | None) -> list[SeriesPoint]:

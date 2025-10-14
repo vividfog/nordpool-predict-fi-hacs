@@ -428,10 +428,10 @@ def test_parse_sahkotin_csv_filters_and_normalizes(hass, enable_custom_integrati
     assert series[1].value == pytest.approx(19.4)
 
 
-def test_build_summary_skips_tables_and_truncates(hass, enable_custom_integrations) -> None:
+def test_build_summary_skips_markdown_grid_and_truncates(hass, enable_custom_integrations) -> None:
     coordinator = _coordinator(hass)
     content = (
-        "| table | row |\n"
+        "| heading | row |\n"
         "\n"
         "  __This line will be very long " + "x" * 260 + "__\n"
         "\n"
@@ -442,10 +442,11 @@ def test_build_summary_skips_tables_and_truncates(hass, enable_custom_integratio
 
     assert summary.endswith("...")
     assert len(summary) <= 255
-    assert "table" not in summary
+    # Summary should not include the grid header or pipes
+    assert "|" not in summary
 
 
-def test_extract_first_table_and_section_includes_table(hass, enable_custom_integrations) -> None:
+def test_narration_section_no_markdown_grid_key(hass, enable_custom_integrations) -> None:
     coordinator = _coordinator(hass)
     content = (
         "Intro paragraph.\n\n"
@@ -456,33 +457,7 @@ def test_extract_first_table_and_section_includes_table(hass, enable_custom_inte
         "\nTail paragraph.\n"
     )
 
-    table = coordinator._extract_first_table(content)
-    assert table is not None
-    lines = [ln for ln in table.splitlines() if ln.strip()]
-    assert lines[0].startswith("|")
-    assert len(lines) == 4
-
     section = coordinator._build_narration_section("narration_en.md", content)
     assert section is not None
-    assert section["table"].startswith("|")
-
-
-def test_extract_first_table_skips_stray_pipe_and_requires_alignment(hass, enable_custom_integrations) -> None:
-    coordinator = _coordinator(hass)
-    content = (
-        "Intro with a stray pipe line that is not a table.\n"
-        "| this is not a table header because it lacks alignment next\n\n"
-        "| Col A | Col B |\n"
-        "|:-----:|------:|\n"
-        "| a1    |   b1  |\n"
-        "| a2    |   b2  |\n\n"
-        "Tail paragraph.\n"
-    )
-
-    table = coordinator._extract_first_table(content)
-    assert table is not None
-    # Ensure the returned block starts at the true header with alignment
-    lines = [ln for ln in table.splitlines() if ln.strip()]
-    assert lines[0].startswith("| Col A | Col B |")
-    # Two data rows + header + alignment
-    assert len(lines) == 4
+    # Section contains only the expected keys
+    assert set(section.keys()) == {"content", "summary", "source"}

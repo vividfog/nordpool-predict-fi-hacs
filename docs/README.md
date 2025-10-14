@@ -4,7 +4,7 @@ These are ready-to-use Lovelace card snippets for the Nordpool Predict FI integr
 
 Requirements
 - Install ApexCharts Card via HACS (Frontend → ApexCharts Card).
-- Install this integration and ensure entities exist (see README table in the repo root).
+- Install this integration and ensure entities exist (see README overview in the repo root).
 
 How to use
 1) In Home Assistant, open your dashboard → Edit → Add Card → Manual.
@@ -15,8 +15,7 @@ How to use
    - npf_card_narration_en.yaml — full English narration (Markdown content).
    - npf_card_summary_fi.yaml — short Finnish summary (sensor state).
    - npf_card_summary_en.yaml — short English summary (sensor state).
-   - npf_card_summary_table_fi.yaml — Finnish weekly summary table only (Markdown from sensor attribute).
-   - npf_card_summary_table_en.yaml — English weekly summary table only (Markdown from sensor attribute).
+   
 3) Paste into the Manual card and save. If you have renamed entities, adjust the entity IDs in the YAML.
 
 Notes
@@ -24,7 +23,6 @@ Notes
 - Price series is in c/kWh and includes realized + forecast in one timeline.
 - Next/cheapest sensors are optional in the headers; remove lines if you don’t use them.
  - Narration sensors: the state is the short summary; the full article is in the `content` attribute with a `source_url` attribute pointing to the origin.
- - Summary table sensors: use `state_attr('sensor.nordpool_predict_fi_narration_table_fi|en', 'summary_table_markdown')` to render the Markdown table.
 
 Troubleshooting
 - If a chart is empty, verify the entity IDs in the YAML match your system (Developer Tools → States).
