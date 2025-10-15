@@ -40,7 +40,7 @@ apex_config:
   markers:
     size: 0
 span:
-  start: hour
+  start: day
 now:
   show: true
   label: Nyt
