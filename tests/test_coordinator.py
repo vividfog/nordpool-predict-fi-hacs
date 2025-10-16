@@ -114,21 +114,28 @@ async def test_coordinator_parses_series(hass, enable_custom_integrations, monke
     assert price_section["forecast"][12].value == pytest.approx(17.0)
     assert price_section["forecast"][13].value == pytest.approx(13.0)
     assert len(price_section["forecast"]) == 72
-    # Cheapest windows now use merged series, so they start from realized data
+    # Cheapest windows start no earlier than the next full hour after the current time
+    next_window_anchor = now.replace(minute=0, second=0, microsecond=0) + timedelta(hours=1)
     windows = price_section["cheapest_windows"]
     window_3h = windows[3]
     assert isinstance(window_3h, PriceWindow)
-    assert window_3h.start == datetime(2024, 1, 1, 0, 0, tzinfo=timezone.utc)
-    assert window_3h.end == datetime(2024, 1, 1, 3, 0, tzinfo=timezone.utc)
-    assert window_3h.average == pytest.approx(6.0)
+    assert window_3h.start == datetime(2024, 1, 1, 13, 0, tzinfo=timezone.utc)
+    assert window_3h.start >= next_window_anchor
+    assert window_3h.end == datetime(2024, 1, 1, 16, 0, tzinfo=timezone.utc)
+    assert window_3h.average == pytest.approx(14.0)
     assert len(window_3h.points) == 3
     window_6h = windows[6]
     assert isinstance(window_6h, PriceWindow)
-    assert window_6h.average == pytest.approx(7.5)
-    assert window_6h.end - window_6h.start == timedelta(hours=6)
+    assert window_6h.start == datetime(2024, 1, 1, 12, 0, tzinfo=timezone.utc)
+    assert window_6h.start >= next_window_anchor
+    assert window_6h.end == datetime(2024, 1, 1, 18, 0, tzinfo=timezone.utc)
+    assert window_6h.average == pytest.approx(46 / 3)
     window_12h = windows[12]
     assert isinstance(window_12h, PriceWindow)
-    assert window_12h.average == pytest.approx(10.5)
+    assert window_12h.start == datetime(2024, 1, 1, 12, 0, tzinfo=timezone.utc)
+    assert window_12h.start >= next_window_anchor
+    assert window_12h.end == datetime(2024, 1, 2, 0, 0, tzinfo=timezone.utc)
+    assert window_12h.average == pytest.approx(215 / 12)
 
     wind_section = data["windpower"]
     # Wind data now starts from today midnight Helsinki (2023-12-31 22:00 UTC -> first available at 00:00 UTC)

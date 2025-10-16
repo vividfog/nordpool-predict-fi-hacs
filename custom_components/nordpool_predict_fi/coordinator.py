@@ -137,10 +137,15 @@ class NordpoolPredictCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 break
         
         price_forecast_start = self._forecast_start_from_segments(realized_series, forecast_from_today)
+        next_window_anchor = now.replace(minute=0, second=0, microsecond=0) + timedelta(hours=1)
 
-        # Calculate cheapest windows using the full merged series
+        # Calculate cheapest windows using future windows only
         cheapest_windows = {
-            hours: self._find_cheapest_window(merged_price_series, hours)
+            hours: self._find_cheapest_window(
+                merged_price_series,
+                hours,
+                earliest_start=next_window_anchor,
+            )
             for hours in CHEAPEST_WINDOW_HOURS
         }
         
@@ -368,6 +373,7 @@ class NordpoolPredictCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         self,
         series: list[SeriesPoint],
         hours: int,
+        earliest_start: datetime | None = None,
     ) -> PriceWindow | None:
         if hours <= 0 or len(series) < hours:
             return None
@@ -377,9 +383,11 @@ class NordpoolPredictCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             window_points = series[index : index + hours]
             if not self._is_hourly_sequence(window_points):
                 continue
+            start_time = window_points[0].datetime
+            if earliest_start and start_time < earliest_start:
+                continue
             average = sum(point.value for point in window_points) / hours
             if best_window is None or average < best_window.average:
-                start_time = window_points[0].datetime
                 end_time = window_points[-1].datetime + timedelta(hours=1)
                 best_window = PriceWindow(
                     duration_hours=hours,

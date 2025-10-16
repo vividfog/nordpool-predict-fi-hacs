@@ -66,8 +66,13 @@ async def test_async_setup_entry_registers_entities(hass, enable_custom_integrat
     ]
     merged_price_series = [current_point, *forecast_series]
     forecast_start = forecast_series[0].datetime
+    next_window_anchor = now + timedelta(hours=1)
     cheapest_windows = {
-        hours: coordinator._find_cheapest_window(merged_price_series, hours)
+        hours: coordinator._find_cheapest_window(
+            merged_price_series,
+            hours,
+            earliest_start=next_window_anchor,
+        )
         for hours in CHEAPEST_WINDOW_HOURS
     }
     narration_section = {
@@ -207,6 +212,7 @@ async def test_async_setup_entry_registers_entities(hass, enable_custom_integrat
     assert three_hour_sensor.native_value == pytest.approx(round(three_window.average, 1))
     assert three_attrs[ATTR_RAW_SOURCE] == "https://example.com/deploy"
     assert three_attrs[ATTR_WINDOW_START] == three_window.start.isoformat()
+    assert datetime.fromisoformat(three_attrs[ATTR_WINDOW_START]) >= next_window_anchor
     assert three_attrs[ATTR_WINDOW_END] == three_window.end.isoformat()
     assert three_attrs[ATTR_WINDOW_DURATION] == 3
     assert len(three_attrs[ATTR_WINDOW_POINTS]) == len(three_window.points)
@@ -218,6 +224,7 @@ async def test_async_setup_entry_registers_entities(hass, enable_custom_integrat
     six_window = cheapest_windows[6]
     assert six_window is not None
     assert six_hour_sensor.native_value == pytest.approx(round(six_window.average, 1))
+    assert datetime.fromisoformat(six_attrs[ATTR_WINDOW_START]) >= next_window_anchor
     assert len(six_attrs[ATTR_WINDOW_POINTS]) == len(six_window.points)
 
     twelve_hour_sensor = by_duration[12]
@@ -225,6 +232,7 @@ async def test_async_setup_entry_registers_entities(hass, enable_custom_integrat
     twelve_window = cheapest_windows[12]
     assert twelve_window is not None
     assert twelve_hour_sensor.native_value == pytest.approx(round(twelve_window.average, 1))
+    assert datetime.fromisoformat(twelve_attrs[ATTR_WINDOW_START]) >= next_window_anchor
     assert len(twelve_attrs[ATTR_WINDOW_POINTS]) == len(twelve_window.points)
 
     narrations = {
