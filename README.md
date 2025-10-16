@@ -1,14 +1,14 @@
 # Nordpool Predict FI – Home Assistant Integration
 
-Nordpool Predict FI is a Home Assistant integration that displays the forecasts published by [`vividfog/nordpool-predict-fi`](https://github.com/vividfog/nordpool-predict-fi). It reads the hourly price feed (`prediction.json`) and the wind forecast (`windpower.json`), then exposes the data as sensors.
+**Nordpool Predict FI is a Home Assistant integration that displays the forecasts published by [`vividfog/nordpool-predict-fi`](https://github.com/vividfog/nordpool-predict-fi). It reads the hourly price feed (`prediction.json`) and the wind forecast (`windpower.json`), then exposes the data as sensors.**
 
 The integration shows all available data from today (Helsinki time) onwards. Price data combines [Sähkötin](https://sahkotin.fi/hours) realized prices with forecast data, transitioning from actual to predicted values. Wind power data is shown similarly.
 
-Cheapest windows work across the entire data timeline, using both realized and forecast data to find the most economical price windows throughout the week.
+Cheapest windows work across the entire data timeline, using both realized and forecast data to find the most economical future price windows throughout the week.
 
 ---
 
-## What You Get
+## Sensors
 
 | Entity | Type | Description |
 | --- | --- | --- |
@@ -27,8 +27,6 @@ Cheapest windows work across the entire data timeline, using both realized and f
 | `sensor.nordpool_predict_fi_narration_en` | Sensor | English narration equivalent with the same attributes for dashboards or automations. |
 
 All timestamps are UTC ISO8601 strings; Home Assistant handles local conversion based on your instance settings.
-
-Realized price data is provided courtesy of [Sähkötin](https://sahkotin.fi/hours).
 
 Narration sensors expose `language`, `summary` (state), `content` (full Markdown), and `source_url` attributes.
 
@@ -71,22 +69,31 @@ The host needs tzdata with the `Europe/Helsinki` zone. If that package is missin
 
 ## Dashboard Cards
 
-All copy/paste YAML cards live in docs — see docs/README.md for quick instructions. Paste into a Manual card in a dashboard with [ApexCharts Card](https://github.com/RomRider/apexcharts-card) installed.
+Manual card snippets live in docs — see [`docs/README.md`](docs/README.md) for copy/paste steps. Install [ApexCharts Card](https://github.com/RomRider/apexcharts-card) (and Button Card for the table) before adding them to your dashboard.
 
-[`npf_card_price.yaml`](docs/npf_card_price.yaml) combines the price sensor forecast with wind power to highlight how production correlates with price:
+### Price vs. Wind Outlook
 
-![Screenshot of forecast vs. market price card in ApexCharts](docs/npf_card_price.png)
+[`npf_card_price.yaml`](docs/npf_card_price.yaml) combines realized + forecast prices with wind production so you can spot when generation pulls prices down.
 
-[`npf_card_wind.yaml`](docs/npf_card_wind.yaml) – focuses on wind output with price as supporting data over a week:
+![ApexCharts price card showing realized prices, forecast, and wind overlay](docs/npf_card_price.jpeg)
 
-![Screenshot of combined price and wind power card in ApexCharts](docs/npf_card_wind.png)
+### Wind Production Spotlight
 
-Narration and summaries (no chart):
-- [`npf_card_narration_fi.yaml`](docs/npf_card_narration_fi.yaml) — full Finnish narration (Markdown `content`).
-- [`npf_card_narration_en.yaml`](docs/npf_card_narration_en.yaml) — full English narration (Markdown `content`).
-- [`npf_card_summary_fi.yaml`](docs/npf_card_summary_fi.yaml) — short Finnish summary (sensor state).
-- [`npf_card_summary_en.yaml`](docs/npf_card_summary_en.yaml) — short English summary (sensor state).
- 
+[`npf_card_wind.yaml`](docs/npf_card_wind.yaml) flips the perspective to wind-first while keeping the price trace available for context across the week.
+
+![ApexCharts wind card showing wind power focus with price overlay](docs/npf_card_wind.png)
+
+### Cheapest Window Countdown
+
+[`npf_card_cheapest_countdown.yaml`](docs/npf_card_cheapest_countdown.yaml) presents the best 3 h, 6 h, and 12 h windows side by side, using Button Card to keep the layout compact.
+
+![Button Card table comparing cheapest 3h, 6h, and 12h price windows](docs/npf_card_cheapest_countdown.png)
+
+### Morning Briefing Summary
+
+[`npf_card_summary_fi.yaml`](docs/npf_card_summary_fi.yaml) and [`npf_card_summary_en.yaml`](docs/npf_card_summary_en.yaml) surface the short-form narrations; pair them with the full Markdown versions (`npf_card_narration_fi.yaml`, `npf_card_narration_en.yaml`) for longer notes.
+
+![Button Card showing the Finnish daily summary with price highlights](docs/npf_card_summary_fi.jpeg)
 
 ---
 

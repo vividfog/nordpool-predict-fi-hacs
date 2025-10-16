@@ -1,0 +1,108 @@
+# Requires custom:button-card (HACS) for templated HTML table output.
+type: custom:button-card
+show_icon: false
+show_state: false
+tap_action:
+  action: none
+styles:
+  card:
+    - padding: 16px
+  custom_fields:
+    table:
+      - width: 100%
+custom_fields:
+  table: |
+    [[[
+      const windows = [
+        { id: 'sensor.nordpool_predict_fi_cheapest_3h_price_window', label: '3 h', accent: '#5E81AC', duration: 3 },
+        { id: 'sensor.nordpool_predict_fi_cheapest_6h_price_window', label: '6 h', accent: '#81A1C1', duration: 6 },
+        { id: 'sensor.nordpool_predict_fi_cheapest_12h_price_window', label: '12 h', accent: '#88C0D0', duration: 12 }
+      ];
+      const now = new Date();
+      const fmtCountdown = (ms) => {
+        const abs = Math.abs(ms);
+        const totalMinutes = Math.round(abs / 60000);
+        const days = Math.floor(totalMinutes / (24 * 60));
+        const hours = Math.floor((totalMinutes % (24 * 60)) / 60);
+        const minutes = totalMinutes % 60;
+        if (days > 0) {
+          return `${days} pv ${hours} h`;
+        }
+        return `${hours} h ${minutes.toString().padStart(2, '0')} min`;
+      };
+      const fmtFull = (date) => {
+        const weekday = date.toLocaleDateString('fi-FI', { weekday: 'short' });
+        const time = date.toLocaleTimeString('fi-FI', {
+          hour: '2-digit',
+          minute: '2-digit',
+          hour12: false
+        });
+        return `${weekday} klo ${time.replace('.', ':')}`;
+      };
+      const buildRow = (cfg) => {
+        const entity = states[cfg.id];
+        if (!entity) {
+          return `
+            <tr>
+              <td style="padding:12px 8px; font-weight:600;">${cfg.label}</td>
+              <td style="padding:12px 8px;" colspan="3">${cfg.id} ei löytynyt</td>
+            </tr>
+          `;
+        }
+        const attr = entity.attributes || {};
+        const duration = attr.window_duration_hours ?? cfg.duration ?? '?';
+        const avg = Number(entity.state);
+        const avgCell = Number.isFinite(avg) ? `${avg.toFixed(1)} ¢/kWh` : '—';
+        const start = attr.window_start ? new Date(attr.window_start) : null;
+        const end = attr.window_end ? new Date(attr.window_end) : null;
+        let startCell = '—';
+        let countdown = 'Odottaa tietoja';
+        if (start) {
+          startCell = fmtFull(start);
+          const diffStart = start.getTime() - now.getTime();
+          if (diffStart > 0) {
+            countdown = `${fmtCountdown(diffStart)}`;
+          } else if (end) {
+            const diffEnd = end.getTime() - now.getTime();
+            countdown = diffEnd > 0 ? `${fmtCountdown(diffEnd)} jäljellä` : '<0 min';
+          } else {
+            countdown = 'Käynnissä';
+          }
+        }
+        return `
+          <tr>
+            <td style="padding:12px 8px; font-weight:600; text-align:left;">
+              <span style="display:inline-flex; align-items:center; gap:6px;">
+                <span style="width:10px; height:10px; border-radius:50%; background:${cfg.accent};"></span>
+                ${duration} h
+              </span>
+            </td>
+            <td style="padding:12px 8px; font-size:18px; font-weight:600; text-align:left;">${avgCell}</td>
+            <td style="padding:12px 8px; font-size:18px; font-weight:600; text-align:left; white-space:nowrap;">${countdown}</td>
+            <td style="padding:12px 8px; white-space:nowrap; text-align:left;">${startCell}</td>
+          </tr>
+        `;
+      };
+      const rows = windows.map(buildRow);
+      return `
+        <table style="width:100%; border-collapse:collapse; font-size:14px; table-layout:fixed;">
+          <colgroup>
+            <col style="width:25%;">
+            <col style="width:25%;">
+            <col style="width:25%;">
+            <col style="width:25%;">
+          </colgroup>
+          <thead>
+            <tr style="text-align:left;">
+              <th style="padding:0 8px 8px; font-size:13px; font-weight:600; opacity:0.7; text-align:left;">Halvin jakso</th>
+              <th style="padding:0 8px 8px; font-size:13px; font-weight:600; opacity:0.7; text-align:left;">Keskihinta</th>
+              <th style="padding:0 8px 8px; font-size:13px; font-weight:600; opacity:0.7; text-align:left;">Alkuun</th>
+              <th style="padding:0 8px 8px; font-size:13px; font-weight:600; opacity:0.7; text-align:left;">Alkaa</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${rows.join('')}
+          </tbody>
+        </table>
+      `;
+    ]]]
