@@ -13,10 +13,12 @@ from homeassistant.helpers import entity_registry as er
 
 from .const import (
     CONF_BASE_URL,
+    CONF_EXTRA_FEES,
     CONF_UPDATE_INTERVAL,
     DATA_COORDINATOR,
     DATA_UNSUB_LISTENER,
     DEFAULT_BASE_URL,
+    DEFAULT_EXTRA_FEES_CENTS,
     DEFAULT_UPDATE_INTERVAL,
     DEFAULT_UPDATE_INTERVAL_MINUTES,
     DOMAIN,
@@ -43,9 +45,11 @@ async def async_setup_entry(hass: HomeAssistant, entry: NordpoolConfigEntry) -> 
         entry_id=entry.entry_id,
         base_url=runtime_config[CONF_BASE_URL],
         update_interval=runtime_config[CONF_UPDATE_INTERVAL],
+        extra_fees_cents=runtime_config[CONF_EXTRA_FEES],
     )
 
     await coordinator.async_config_entry_first_refresh()
+    coordinator.set_extra_fees_cents(runtime_config[CONF_EXTRA_FEES])
 
     unsub_options = entry.add_update_listener(async_update_entry)
     hass.data[DOMAIN][entry.entry_id] = {
@@ -106,6 +110,7 @@ def _runtime_entry_config(entry: NordpoolConfigEntry) -> Mapping[str, Any]:
     result: dict[str, Any] = {
         CONF_BASE_URL: DEFAULT_BASE_URL,
         CONF_UPDATE_INTERVAL: DEFAULT_UPDATE_INTERVAL,
+        CONF_EXTRA_FEES: DEFAULT_EXTRA_FEES_CENTS,
     }
 
     def _normalize(data: Mapping[str, Any]) -> None:
@@ -121,6 +126,11 @@ def _runtime_entry_config(entry: NordpoolConfigEntry) -> Mapping[str, Any]:
             else:
                 total_minutes = max(int(minutes), 1)
             result[CONF_UPDATE_INTERVAL] = timedelta(minutes=total_minutes)
+        if CONF_EXTRA_FEES in data:
+            try:
+                result[CONF_EXTRA_FEES] = float(data[CONF_EXTRA_FEES])
+            except (TypeError, ValueError):
+                result[CONF_EXTRA_FEES] = DEFAULT_EXTRA_FEES_CENTS
 
     _normalize(entry.data)
     _normalize(entry.options)

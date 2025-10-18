@@ -79,6 +79,11 @@
       "nordpool_predict_fi__narration_en": {
         "name": "Narration (EN)"
       }
+    },
+    "number": {
+      "nordpool_predict_fi__extra_fees": {
+        "name": "Extraavgift"
+      }
     }
   }
 }

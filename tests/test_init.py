@@ -8,8 +8,10 @@ import pytest
 from custom_components.nordpool_predict_fi import _runtime_entry_config
 from custom_components.nordpool_predict_fi.const import (
     CONF_BASE_URL,
+    CONF_EXTRA_FEES,
     CONF_UPDATE_INTERVAL,
     DEFAULT_BASE_URL,
+    DEFAULT_EXTRA_FEES_CENTS,
     DEFAULT_UPDATE_INTERVAL_MINUTES,
 )
 
@@ -31,6 +33,7 @@ def test_runtime_entry_config_normalizes_values() -> None:
 
     assert result[CONF_BASE_URL] == "https://example.com/deploy"
     assert result[CONF_UPDATE_INTERVAL] == timedelta(minutes=1)
+    assert result[CONF_EXTRA_FEES] == DEFAULT_EXTRA_FEES_CENTS
 
 
 def test_runtime_entry_config_prefers_options_over_data() -> None:
@@ -48,6 +51,7 @@ def test_runtime_entry_config_prefers_options_over_data() -> None:
 
     assert result[CONF_BASE_URL] == "https://example.com/deploy"
     assert result[CONF_UPDATE_INTERVAL] == timedelta(minutes=10)
+    assert result[CONF_EXTRA_FEES] == DEFAULT_EXTRA_FEES_CENTS
 
 
 @pytest.mark.parametrize("raw_base", ["", "   ", "https://example.com/deploy/"])
@@ -64,3 +68,17 @@ def test_runtime_entry_config_handles_defaults(raw_base: str) -> None:
     expected_base = DEFAULT_BASE_URL if not raw_base.strip() else raw_base.strip().rstrip("/")
     assert result[CONF_BASE_URL] == expected_base
     assert result[CONF_UPDATE_INTERVAL] == timedelta(minutes=DEFAULT_UPDATE_INTERVAL_MINUTES)
+    assert result[CONF_EXTRA_FEES] == DEFAULT_EXTRA_FEES_CENTS
+
+
+def test_runtime_entry_config_parses_extra_fees() -> None:
+    entry = _entry(
+        {
+            CONF_EXTRA_FEES: " 5.5 ",
+        },
+        {},
+    )
+
+    result = _runtime_entry_config(entry)
+
+    assert result[CONF_EXTRA_FEES] == pytest.approx(5.5)

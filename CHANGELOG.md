@@ -2,6 +2,13 @@
 
 All notable changes to this project are documented here. This project follows the Common Changelog style (common-changelog.org).
 
+## 2025-10-19
+### Added
+- Dedicated `number.nordpool_predict_fi_extra_fees` entity to adjust a constant cents-per-kWh surcharge that applies to all price sensors.
+
+### Changed
+- Price sensors now expose `extra_fees` attributes and include the configured surcharge in forecast, now, next-hour averages, and cheapest window outputs.
+
 ## 2025-10-14
 ### Added
 - Lovelace card snippets for narration and summaries.

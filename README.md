@@ -18,6 +18,7 @@ Cheapest windows work across the entire data timeline, using both realized and f
 | `sensor.nordpool_predict_fi_price_next_3h` | Sensor | Average price for the next 3 hours. |
 | `sensor.nordpool_predict_fi_price_next_6h` | Sensor | Average price for the next 6 hours. |
 | `sensor.nordpool_predict_fi_price_next_12h` | Sensor | Average price for the next 12 hours. |
+| `number.nordpool_predict_fi_extra_fees` | Number | Adjustable surcharge (c/kWh) that is added to every price reading; defaults to 0.0. |
 | `sensor.nordpool_predict_fi_windpower` | Optional sensor | Wind production forecast (MW) with the complete forecast series. |
 | `sensor.nordpool_predict_fi_windpower_now` | Optional sensor | Wind power value for the current hour with its timestamp. |
 | `sensor.nordpool_predict_fi_cheapest_3h_price_window` | Sensor | Lowest average of any 3-hour window in the data; attributes expose `window_start`, `window_end`, `window_points`, and `raw_source`. |
@@ -57,6 +58,7 @@ The host needs tzdata with the `Europe/Helsinki` zone. If that package is missin
 ## Working With the Data
 
 - All data (price forecasts, wind power, and realized prices) is shown from beginning of today (Helsinki time) onwards.
+- The dedicated extra fees number lets you overlay grid fees or markups in cents per kWh; the value is reflected in price sensor states, cheapest windows, and their `extra_fees` attributes.
 - Sähkötin CSV data for the current Helsinki day is merged with Nordpool Predict FI forecasts, so the `forecast` attribute already contains realized + predicted prices in one timeline.
 - The price sensor also exposes `forecast_start`, the first forecast hour after realized data, so dashboards can mark where predictions kick in.
 - Cheapest windows (3h, 6h, 12h) work across the entire available data, using both realized and forecast prices to find the most economical periods throughout the week.

@@ -16,7 +16,14 @@ from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
-from .const import CHEAPEST_WINDOW_HOURS, CONF_UPDATE_INTERVAL, DEFAULT_BASE_URL, SAHKOTIN_BASE_URL
+from .const import (
+    CHEAPEST_WINDOW_HOURS,
+    CONF_EXTRA_FEES,
+    CONF_UPDATE_INTERVAL,
+    DEFAULT_BASE_URL,
+    DEFAULT_EXTRA_FEES_CENTS,
+    SAHKOTIN_BASE_URL,
+)
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -53,6 +60,7 @@ class NordpoolPredictCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         entry_id: str,
         base_url: str,
         update_interval,
+        extra_fees_cents: float | None = None,
     ) -> None:
         super().__init__(
             hass,
@@ -63,10 +71,29 @@ class NordpoolPredictCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         self.entry_id = entry_id
         self._base_url = base_url or DEFAULT_BASE_URL
         self._helsinki_tz: tzinfo | None = None
+        self._extra_fees_cents = (
+            float(extra_fees_cents)
+            if extra_fees_cents is not None
+            else DEFAULT_EXTRA_FEES_CENTS
+        )
 
     @property
     def base_url(self) -> str:
         return self._base_url
+
+    @property
+    def extra_fees_cents(self) -> float:
+        return self._extra_fees_cents
+
+    def set_extra_fees_cents(self, value: float) -> None:
+        try:
+            normalized = float(value)
+        except (TypeError, ValueError):
+            normalized = DEFAULT_EXTRA_FEES_CENTS
+        if normalized == self._extra_fees_cents:
+            return
+        self._extra_fees_cents = normalized
+        self.async_update_listeners()
 
     @property
     def current_time(self) -> datetime:
@@ -167,6 +194,7 @@ class NordpoolPredictCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             "meta": {
                 "base_url": self._base_url,
                 CONF_UPDATE_INTERVAL: self.update_interval,
+                CONF_EXTRA_FEES: self._extra_fees_cents,
             },
         }
         

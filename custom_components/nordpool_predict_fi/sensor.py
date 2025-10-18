@@ -16,6 +16,7 @@ from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from .const import (
     ATTR_FORECAST,
     ATTR_FORECAST_START,
+    ATTR_EXTRA_FEES,
     ATTR_LANGUAGE,
     ATTR_NARRATION_CONTENT,
     ATTR_NARRATION_SUMMARY,
@@ -89,11 +90,12 @@ class NordpoolBaseSensor(CoordinatorEntity[NordpoolPredictCoordinator], SensorEn
         self,
         series: list[SeriesPoint],
         decimals: int | None = None,
+        offset: float = 0.0,
     ) -> list[Mapping[str, Any]]:
         return [
             {
                 "timestamp": point.datetime.isoformat(),
-                "value": self._rounded_value(point.value, decimals),
+                "value": self._rounded_value(point.value + offset, decimals),
             }
             for point in series
         ]
@@ -182,6 +184,14 @@ class NordpoolBaseSensor(CoordinatorEntity[NordpoolPredictCoordinator], SensorEn
             return int(rounded)
         return rounded
 
+    def _extra_fees_cents(self) -> float:
+        return getattr(self.coordinator, "extra_fees_cents", 0.0)
+
+    def _apply_extra_fees(self, value: float | None) -> float | None:
+        if value is None:
+            return None
+        return value + self._extra_fees_cents()
+
 
 #region _price
 class NordpoolPriceSensor(NordpoolBaseSensor):
@@ -198,7 +208,8 @@ class NordpoolPriceSensor(NordpoolBaseSensor):
     @property
     def native_value(self) -> float | None:
         current = self._series_point("current")
-        return round(current.value, 1) if current else None
+        adjusted = self._apply_extra_fees(current.value if current else None)
+        return round(adjusted, 1) if adjusted is not None else None
 
     @property
     def extra_state_attributes(self) -> Mapping[str, Any] | None:
@@ -211,11 +222,16 @@ class NordpoolPriceSensor(NordpoolBaseSensor):
             forecast_start_iso = forecast_start.isoformat()
         else:
             forecast_start_iso = None
-        forecast = self._build_forecast_attributes(data.get("forecast", []), decimals=1)
+        forecast = self._build_forecast_attributes(
+            data.get("forecast", []),
+            decimals=1,
+            offset=self._extra_fees_cents(),
+        )
         result = {
             ATTR_FORECAST: forecast,
             ATTR_FORECAST_START: forecast_start_iso,
             ATTR_RAW_SOURCE: self.coordinator.base_url,
+            ATTR_EXTRA_FEES: self._extra_fees_cents(),
         }
         return result
 
@@ -244,7 +260,8 @@ class NordpoolPriceNowSensor(NordpoolBaseSensor):
     @property
     def native_value(self) -> float | None:
         point = self._latest_point()
-        return round(point.value, 1) if point else None
+        adjusted = self._apply_extra_fees(point.value if point else None)
+        return round(adjusted, 1) if adjusted is not None else None
 
     @property
     def extra_state_attributes(self) -> Mapping[str, Any] | None:
@@ -252,6 +269,7 @@ class NordpoolPriceNowSensor(NordpoolBaseSensor):
         return {
             ATTR_TIMESTAMP: point.datetime.isoformat() if point else None,
             ATTR_RAW_SOURCE: self.coordinator.base_url,
+            ATTR_EXTRA_FEES: self._extra_fees_cents(),
         }
 
     def _latest_point(self) -> SeriesPoint | None:
@@ -287,7 +305,8 @@ class NordpoolPriceNextHoursSensor(NordpoolBaseSensor):
     @property
     def native_value(self) -> float | None:
         average, _ = self._average_next_hours(self._hours)
-        return round(average, 1) if average is not None else None
+        adjusted = self._apply_extra_fees(average)
+        return round(adjusted, 1) if adjusted is not None else None
 
     @property
     def extra_state_attributes(self) -> Mapping[str, Any] | None:
@@ -295,6 +314,7 @@ class NordpoolPriceNextHoursSensor(NordpoolBaseSensor):
         return {
             ATTR_TIMESTAMP: start_time.isoformat() if start_time else None,
             ATTR_RAW_SOURCE: self.coordinator.base_url,
+            ATTR_EXTRA_FEES: self._extra_fees_cents(),
         }
 
 
@@ -314,7 +334,10 @@ class NordpoolCheapestWindowSensor(NordpoolBaseSensor):
     @property
     def native_value(self) -> float | None:
         window = self._cheapest_window(self._hours)
-        return round(window.average, 1) if window else None
+        if not window:
+            return None
+        adjusted = self._apply_extra_fees(window.average)
+        return round(adjusted, 1)
 
     @property
     def extra_state_attributes(self) -> Mapping[str, Any] | None:
@@ -326,11 +349,16 @@ class NordpoolCheapestWindowSensor(NordpoolBaseSensor):
         if window:
             attributes[ATTR_WINDOW_START] = window.start.isoformat()
             attributes[ATTR_WINDOW_END] = window.end.isoformat()
-            attributes[ATTR_WINDOW_POINTS] = self._build_forecast_attributes(window.points, decimals=1)
+            attributes[ATTR_WINDOW_POINTS] = self._build_forecast_attributes(
+                window.points,
+                decimals=1,
+                offset=self._extra_fees_cents(),
+            )
         else:
             attributes[ATTR_WINDOW_START] = None
             attributes[ATTR_WINDOW_END] = None
             attributes[ATTR_WINDOW_POINTS] = []
+        attributes[ATTR_EXTRA_FEES] = self._extra_fees_cents()
         return attributes
 
 
