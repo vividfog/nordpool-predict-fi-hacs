@@ -10,8 +10,8 @@
 ## Primary Modules
 - `__init__.py`: sets up `DataUpdateCoordinator`, registers platforms, normalises config entry options.
 - `const.py`: domain constants, default config, attribute keys.
-- `coordinator.py`: fetches Sähkötin CSV + JSON artifacts, merges realized/forecast price timelines, applies Helsinki release rules, exposes `SeriesPoint` and `PriceWindow` dataclasses plus price/wind payloads.
-- `sensor.py`: sensor entities (upcoming + now price, upcoming + now wind) keyed off coordinator data.
+- `coordinator.py`: fetches Sähkötin CSV + JSON artifacts, merges realized/forecast price timelines, applies Helsinki release rules, exposes `SeriesPoint`, `PriceWindow`, and `DailyAverage` dataclasses plus price/wind payloads.
+- `sensor.py`: sensor entities (upcoming + now price, daily averages, upcoming + now wind) keyed off coordinator data.
 - `manifest.json`: minimal metadata (version, requirements, HA integration info).
 - `tests/conftest.py`: injects project root into `sys.path` so tests can import `custom_components`.
 
@@ -25,6 +25,7 @@
   - Cheapest windows (3h/6h/12h) calculated across entire merged series (realized + forecast).
 - Wind series filtered the same way as price (from today midnight).
 - Cheapest rolling windows (3h/6h/12h) are derived from contiguous hourly points across full merged data and cached for sensor use.
+- Full Helsinki days (00:00-23:00) are grouped into `DailyAverage` payloads for downstream sensors and UI.
 - Networking via `aiohttp` session + `async_timeout`.
 
 ### Time semantics (important)
@@ -36,6 +37,7 @@
 - Price sensors:
   - `sensor.nordpool_predict_fi_price` → attributes `forecast`, `raw_source`.
   - `sensor.nordpool_predict_fi_price_now` → attributes `timestamp`, `raw_source`.
+  - `sensor.nordpool_predict_fi_price_daily_average` → attributes `daily_averages`, `raw_source`, `extra_fees`; state is today's averaged price when a complete day is available.
 - `sensor.nordpool_predict_fi_price_next_1h` → attributes `timestamp`, `raw_source` (average over next starting hour: T+1).
 - `sensor.nordpool_predict_fi_price_next_3h` → attributes `timestamp`, `raw_source` (average over next 3 hours: T+1 to T+3).
 - `sensor.nordpool_predict_fi_price_next_6h` → attributes `timestamp`, `raw_source` (average over next 6 hours: T+1 to T+6).
@@ -83,6 +85,7 @@
 - Extending attributes: edit sensor property methods; tests should assert attribute presence.
 - Changing prediction logic: update coordinator calculations; keep tests in `tests/test_coordinator.py` aligned.
 - Document UI changes in both `README.md` and `AGENTS.md`; reference card YAML when altering forecast attributes to avoid breaking dashboards.
+- When requirements are unclear or you need Home Assistant conventions, use Context7: resolve the `home-assistant/core` library ID, pull focused docs with `context7__get-library-docs` (set `topic` if helpful), then apply the guidance—no guessing.
 
 ## Style
 - Regions are sparse two-level only: top `#region setup|coordinator|sensor`; second `#region _update|_fetch|_parse|_time|_windows|_narration|_merge`; no third-level (`__...`), avoid micro-markers, goal is zoomed-out map clarity, omit endregion, ASCII only, comments before `from __future__` allowed.
