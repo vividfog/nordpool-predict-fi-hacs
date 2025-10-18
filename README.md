@@ -14,7 +14,7 @@ Cheapest windows work across the entire data timeline, using both realized and f
 | --- | --- | --- |
 | `sensor.nordpool_predict_fi_price` | Sensor | Continuous hourly price timeline (`c/kWh`) built from Sähkötin realizations + Nordpool Predict forecasts. |
 | `sensor.nordpool_predict_fi_price_now` | Sensor | Latest price value at or before the current hour, plus the timestamp it originated from. |
-| `sensor.nordpool_predict_fi_price_daily_average` | Sensor | Average price for each full Helsinki day (00:00-23:00); attributes list per-day breakdowns including hourly points. |
+| `sensor.nordpool_predict_fi_daily_average_price` | Sensor | Average price for each full Helsinki day (00:00-23:00); attributes list per-day breakdowns including hourly points. |
 | `sensor.nordpool_predict_fi_price_next_1h` | Sensor | Average price for the next starting 1 hour. |
 | `sensor.nordpool_predict_fi_price_next_3h` | Sensor | Average price for the next 3 hours. |
 | `sensor.nordpool_predict_fi_price_next_6h` | Sensor | Average price for the next 6 hours. |
@@ -77,7 +77,9 @@ Manual card snippets live in docs — see [`docs/README.md`](docs/README.md) for
 
 ### Daily Price Averages
 
-[`npf_card_daily_averages.yaml`](docs/npf_card_daily_averages.yaml) renders a simple Markdown table of each Helsinki day with its average price, ideal for at-a-glance planning across the week.
+[`npf_card_daily_averages_button-card.yaml`](docs/npf_card_daily_averages_button-card.yaml) offers a button-card table layout with weekday labels plus daily min/avg/max columns.
+
+[`npf_card_daily_averages_md.yaml`](docs/npf_card_daily_averages_md.yaml) renders a simple Markdown table of each Helsinki day with average, min, and max prices.
 
 ### Price vs. Wind Outlook
 

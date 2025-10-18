@@ -1,0 +1,117 @@
+type: custom:button-card
+show_icon: false
+show_state: false
+tap_action:
+  action: none
+styles:
+  card:
+    - padding: 16px
+    - width: 100%
+    - box-sizing: border-box
+    - display: block
+    - max-width: none
+    - justify-self: stretch
+  grid:
+    - width: 100%
+    - align-items: stretch
+    - justify-items: stretch
+  custom_fields:
+    table:
+      - width: 100%
+      - display: block
+      - justify-self: stretch
+      - align-self: stretch
+custom_fields:
+  table: |
+    [[[
+      const entityId = 'sensor.nordpool_predict_fi_daily_average_price';
+      const priceEntity = states[entityId];
+      if (!priceEntity) {
+        return `
+          <div style="font-size:14px; opacity:0.6;">
+            ${entityId} ei löytynyt.
+          </div>
+        `;
+      }
+
+      const data = priceEntity.attributes?.daily_averages;
+      if (!Array.isArray(data) || data.length === 0) {
+        return `
+          <div style="font-size:14px; opacity:0.6;">
+            Ei päivittäisiä hintatietoja saatavilla.
+          </div>
+        `;
+      }
+
+      const weekdays = ['ma', 'ti', 'ke', 'to', 'pe', 'la', 'su'];
+      const rows = data.map((day) => {
+        const date = new Date(day.start);
+        if (Number.isNaN(date.getTime())) {
+          return '';
+        }
+        const weekday = weekdays[date.getDay() === 0 ? 6 : date.getDay() - 1];
+        const formattedDate = date.toLocaleDateString('fi-FI', {
+          month: '2-digit',
+          day: '2-digit',
+        });
+        const average = Number(day.average);
+        const avgCell = Number.isFinite(average) ? `${average.toFixed(1)}` : '—';
+        const values = Array.isArray(day.points)
+          ? day.points
+              .map((point) => Number(point.value))
+              .filter((value) => Number.isFinite(value))
+          : [];
+        const minValue = values.length ? Math.min(...values) : null;
+        const maxValue = values.length ? Math.max(...values) : null;
+        const minCell = Number.isFinite(minValue) ? `${minValue.toFixed(1)}` : '—';
+        const maxCell = Number.isFinite(maxValue) ? `${maxValue.toFixed(1)}` : '—';
+        return `
+          <tr>
+            <td style="padding:10px 12px; font-weight:600; white-space:nowrap;">
+              ${weekday} ${formattedDate}
+            </td>
+            <td style="padding:10px 12px; white-space:nowrap;">
+              ${avgCell}
+            </td>
+            <td style="padding:10px 12px; white-space:nowrap; opacity:0.85;">
+              ${minCell}
+            </td>
+            <td style="padding:10px 12px; white-space:nowrap; opacity:0.85;">
+              ${maxCell}
+            </td>
+          </tr>
+        `;
+      }).filter(Boolean).join('');
+
+      return `
+        <div style="width:100%;">
+          <table style="width:100%; border-collapse:collapse; font-size:14px;">
+            <colgroup>
+              <col style="width:40%;">
+              <col style="width:20%;">
+              <col style="width:20%;">
+              <col style="width:20%;">
+            </colgroup>
+            <thead>
+              <tr>
+                <th style="padding:0 12px 8px; font-size:13px; font-weight:600; opacity:0.7; text-align:center;">
+                  Päivä
+                </th>
+                <th style="padding:0 12px 8px; font-size:13px; font-weight:600; opacity:0.7; text-align:center;">
+                  Keskihinta (¢/kWh)
+                </th>
+                <th style="padding:0 12px 8px; font-size:13px; font-weight:600; opacity:0.7; text-align:center;">
+                  Min (¢/kWh)
+                </th>
+                <th style="padding:0 12px 8px; font-size:13px; font-weight:600; opacity:0.7; text-align:center;">
+                  Max (¢/kWh)
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              ${rows}
+            </tbody>
+          </table>
+        </div>
+      `;
+    ]]]
