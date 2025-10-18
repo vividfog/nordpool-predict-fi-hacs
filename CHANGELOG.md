@@ -5,7 +5,7 @@ All notable changes to this project are documented here. This project follows th
 ## 2025-10-19
 ### Added
 - Dedicated `number.nordpool_predict_fi_extra_fees` entity to adjust a constant cents-per-kWh surcharge that applies to all price sensors.
-- Daily average price sensor with full-day (00:00-23:00 Helsinki) breakdowns and a sample Markdown dashboard card.
+- Daily average price sensor with full-day (00:00-23:00 Helsinki) breakdowns and paired Lovelace cards (markdown + button-card) showing daily min/avg/max.
 
 ### Changed
 - Price sensors now expose `extra_fees` attributes and include the configured surcharge in forecast, now, next-hour averages, and cheapest window outputs.
