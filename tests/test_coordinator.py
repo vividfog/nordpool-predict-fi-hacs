@@ -136,6 +136,30 @@ async def test_coordinator_parses_series(hass, enable_custom_integrations, monke
     assert window_12h.start >= next_window_anchor
     assert window_12h.end == datetime(2024, 1, 2, 0, 0, tzinfo=timezone.utc)
     assert window_12h.average == pytest.approx(215 / 12)
+    daily_averages = price_section["daily_averages"]
+    assert len(daily_averages) == 2
+    first_day = daily_averages[0]
+    assert first_day.date == datetime(2024, 1, 2, tzinfo=helsinki).date()
+    assert first_day.start == datetime(2024, 1, 2, 0, 0, tzinfo=helsinki)
+    assert first_day.end == datetime(2024, 1, 3, 0, 0, tzinfo=helsinki)
+    assert len(first_day.points) == 24
+    assert first_day.points[0].datetime == datetime(2024, 1, 1, 22, 0, tzinfo=timezone.utc)
+    assert first_day.points[-1].datetime == datetime(2024, 1, 2, 21, 0, tzinfo=timezone.utc)
+    assert first_day.points[0].value == pytest.approx(22.0)
+    assert first_day.points[-1].value == pytest.approx(45.0)
+    expected_first_average = sum(point.value for point in first_day.points) / len(first_day.points)
+    assert first_day.average == pytest.approx(expected_first_average)
+    second_day = daily_averages[1]
+    assert second_day.date == datetime(2024, 1, 3, tzinfo=helsinki).date()
+    assert second_day.start == datetime(2024, 1, 3, 0, 0, tzinfo=helsinki)
+    assert second_day.end == datetime(2024, 1, 4, 0, 0, tzinfo=helsinki)
+    assert len(second_day.points) == 24
+    assert second_day.points[0].datetime == datetime(2024, 1, 2, 22, 0, tzinfo=timezone.utc)
+    assert second_day.points[-1].datetime == datetime(2024, 1, 3, 21, 0, tzinfo=timezone.utc)
+    assert second_day.points[0].value == pytest.approx(46.0)
+    assert second_day.points[-1].value == pytest.approx(69.0)
+    expected_second_average = sum(point.value for point in second_day.points) / len(second_day.points)
+    assert second_day.average == pytest.approx(expected_second_average)
 
     wind_section = data["windpower"]
     # Wind data now starts from today midnight Helsinki (2023-12-31 22:00 UTC -> first available at 00:00 UTC)

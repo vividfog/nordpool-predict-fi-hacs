@@ -14,6 +14,7 @@ Cheapest windows work across the entire data timeline, using both realized and f
 | --- | --- | --- |
 | `sensor.nordpool_predict_fi_price` | Sensor | Continuous hourly price timeline (`c/kWh`) built from Sähkötin realizations + Nordpool Predict forecasts. |
 | `sensor.nordpool_predict_fi_price_now` | Sensor | Latest price value at or before the current hour, plus the timestamp it originated from. |
+| `sensor.nordpool_predict_fi_price_daily_average` | Sensor | Average price for each full Helsinki day (00:00-23:00); attributes list per-day breakdowns including hourly points. |
 | `sensor.nordpool_predict_fi_price_next_1h` | Sensor | Average price for the next starting 1 hour. |
 | `sensor.nordpool_predict_fi_price_next_3h` | Sensor | Average price for the next 3 hours. |
 | `sensor.nordpool_predict_fi_price_next_6h` | Sensor | Average price for the next 6 hours. |
@@ -59,6 +60,7 @@ The host needs tzdata with the `Europe/Helsinki` zone. If that package is missin
 
 - All data (price forecasts, wind power, and realized prices) is shown from beginning of today (Helsinki time) onwards.
 - The dedicated extra fees number lets you overlay grid fees or markups in cents per kWh; the value is reflected in price sensor states, cheapest windows, and their `extra_fees` attributes.
+- Daily averages sensor keeps a running list of full Helsinki days (00:00-23:00) with their averaged prices and the underlying hourly points for dashboard tables or charts.
 - Sähkötin CSV data for the current Helsinki day is merged with Nordpool Predict FI forecasts, so the `forecast` attribute already contains realized + predicted prices in one timeline.
 - The price sensor also exposes `forecast_start`, the first forecast hour after realized data, so dashboards can mark where predictions kick in.
 - Cheapest windows (3h, 6h, 12h) work across the entire available data, using both realized and forecast prices to find the most economical periods throughout the week.
@@ -72,6 +74,10 @@ The host needs tzdata with the `Europe/Helsinki` zone. If that package is missin
 ## Dashboard Cards
 
 Manual card snippets live in docs — see [`docs/README.md`](docs/README.md) for copy/paste steps. Install [ApexCharts Card](https://github.com/RomRider/apexcharts-card) (and Button Card for the table) before adding them to your dashboard.
+
+### Daily Price Averages
+
+[`npf_card_daily_averages.yaml`](docs/npf_card_daily_averages.yaml) renders a simple Markdown table of each Helsinki day with its average price, ideal for at-a-glance planning across the week.
 
 ### Price vs. Wind Outlook
 

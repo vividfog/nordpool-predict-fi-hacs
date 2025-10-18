@@ -58,6 +58,9 @@
       "nordpool_predict_fi__price_now": {
         "name": "Price Now"
       },
+      "nordpool_predict_fi__price_daily_average": {
+        "name": "Daily Average Price"
+      },
       "nordpool_predict_fi__price_next_1h": {
         "name": "Average Price Next 1h"
       },

@@ -1,6 +1,6 @@
 [project]
 name = "nordpool-predict-fi-hacs"
-version = "2025.10.19.1"
+version = "2025.10.19.2"
 description = "Home Assistant integration for Nordpool FI price predictions"
 readme = "README.md"
 requires-python = ">=3.12"

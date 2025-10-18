@@ -58,6 +58,9 @@
       "nordpool_predict_fi__price_now": {
         "name": "Hinta nyt"
       },
+      "nordpool_predict_fi__price_daily_average": {
+        "name": "Päivän keskihinta"
+      },
       "nordpool_predict_fi__price_next_1h": {
         "name": "Keskiarvohinta 1h"
       },

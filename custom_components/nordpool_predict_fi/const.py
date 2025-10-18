@@ -41,6 +41,7 @@ ATTR_NARRATION_SUMMARY = "summary"
 ATTR_SOURCE_URL = "source_url"
 ATTR_TIMESTAMP = "timestamp"
 ATTR_EXTRA_FEES = "extra_fees"
+ATTR_DAILY_AVERAGES = "daily_averages"
 
 CHEAPEST_WINDOW_HOURS: tuple[int, ...] = (3, 6, 12)
 NEXT_HOURS: tuple[int, ...] = (1, 3, 6, 12)

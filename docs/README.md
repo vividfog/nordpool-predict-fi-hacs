@@ -12,6 +12,7 @@ These are ready-to-use Lovelace card snippets for the Nordpool Predict FI integr
 1) In Home Assistant, open your dashboard → Edit → Add Card → Manual.
 2) Open one of these files and copy its contents:
    - `npf_card_cheapest_countdown.yaml` — compact table comparing all cheapest time windows.
+   - `npf_card_daily_averages.yaml` — markdown card that lists each Helsinki day with its average price.
    - `npf_card_price.yaml` — price-first card with wind overlay.
    - `npf_card_wind.yaml` — wind-first card with price overlay.
    - `npf_card_narration_fi.yaml` — full Finnish narration (Markdown content).

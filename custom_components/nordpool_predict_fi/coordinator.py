@@ -5,7 +5,7 @@ import asyncio
 import logging
 import csv
 from dataclasses import dataclass
-from datetime import datetime, timedelta, timezone, tzinfo
+from datetime import date, datetime, timedelta, time, timezone, tzinfo
 from typing import Any
 from urllib.parse import urlencode
 
@@ -37,6 +37,15 @@ class SeriesPoint:
 @dataclass(slots=True)
 class PriceWindow:
     duration_hours: int
+    start: datetime
+    end: datetime
+    average: float
+    points: list[SeriesPoint]
+
+
+@dataclass(slots=True)
+class DailyAverage:
+    date: date
     start: datetime
     end: datetime
     average: float
@@ -185,6 +194,10 @@ class NordpoolPredictCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 "cheapest_windows": cheapest_windows,
                 "now": now,
                 "forecast_start": price_forecast_start,
+                "daily_averages": self._calculate_daily_averages(
+                    merged_price_series,
+                    helsinki_tz,
+                ),
             },
             "windpower": None,
             "narration": {
@@ -539,3 +552,52 @@ class NordpoolPredictCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 continue
             merged.append(point)
         return merged
+
+    def _calculate_daily_averages(
+        self,
+        series: list[SeriesPoint],
+        helsinki_tz: tzinfo,
+    ) -> list[DailyAverage]:
+        if not series:
+            return []
+
+        buckets: dict[date, list[SeriesPoint]] = {}
+        for point in series:
+            local_dt = point.datetime.astimezone(helsinki_tz)
+            buckets.setdefault(local_dt.date(), []).append(point)
+
+        daily: list[DailyAverage] = []
+        for local_date in sorted(buckets):
+            points = sorted(buckets[local_date], key=lambda item: item.datetime)
+            if not self._is_full_helsinki_day(points, helsinki_tz, local_date):
+                continue
+            average = sum(point.value for point in points) / len(points)
+            start_local = datetime.combine(local_date, time(0), tzinfo=helsinki_tz)
+            end_local = start_local + timedelta(days=1)
+            daily.append(
+                DailyAverage(
+                    date=local_date,
+                    start=start_local,
+                    end=end_local,
+                    average=average,
+                    points=points,
+                )
+            )
+        return daily
+
+    def _is_full_helsinki_day(
+        self,
+        points: list[SeriesPoint],
+        helsinki_tz: tzinfo,
+        local_date: date,
+    ) -> bool:
+        if len(points) != 24:
+            return False
+
+        for index, point in enumerate(points):
+            local_dt = point.datetime.astimezone(helsinki_tz)
+            if local_dt.date() != local_date:
+                return False
+            if local_dt.hour != index:
+                return False
+        return True

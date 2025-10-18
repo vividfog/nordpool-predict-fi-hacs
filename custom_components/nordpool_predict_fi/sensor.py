@@ -16,6 +16,7 @@ from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from .const import (
     ATTR_FORECAST,
     ATTR_FORECAST_START,
+    ATTR_DAILY_AVERAGES,
     ATTR_EXTRA_FEES,
     ATTR_LANGUAGE,
     ATTR_NARRATION_CONTENT,
@@ -35,7 +36,12 @@ from .const import (
     NARRATION_LANGUAGE_NAMES,
     NEXT_HOURS,
 )
-from .coordinator import NordpoolPredictCoordinator, PriceWindow, SeriesPoint
+from .coordinator import (
+    DailyAverage,
+    NordpoolPredictCoordinator,
+    PriceWindow,
+    SeriesPoint,
+)
 
 
 #region _setup
@@ -49,6 +55,7 @@ async def async_setup_entry(
     entities: list[SensorEntity] = [
         NordpoolPriceSensor(coordinator, entry),
         NordpoolPriceNowSensor(coordinator, entry),
+        NordpoolPriceDailyAverageSensor(coordinator, entry),
     ]
     entities.extend(
         NordpoolPriceNextHoursSensor(coordinator, entry, hours) for hours in NEXT_HOURS
@@ -127,6 +134,15 @@ class NordpoolBaseSensor(CoordinatorEntity[NordpoolPredictCoordinator], SensorEn
         if not isinstance(series, list):
             return []
         return [point for point in series if isinstance(point, SeriesPoint)]
+
+    def _daily_averages(self) -> list[DailyAverage]:
+        section = self._price_section()
+        if not section:
+            return []
+        daily = section.get("daily_averages")
+        if not isinstance(daily, list):
+            return []
+        return [item for item in daily if isinstance(item, DailyAverage)]
 
     def _future_point(self, hours_ahead: int) -> SeriesPoint | None:
         series = self._price_series()
@@ -287,6 +303,64 @@ class NordpoolPriceNowSensor(NordpoolBaseSensor):
             else:
                 break
         return latest
+
+
+#region _price_daily
+class NordpoolPriceDailyAverageSensor(NordpoolBaseSensor):
+    _attr_translation_key = "price_daily_average"
+    _attr_icon = "mdi:calendar-clock"
+    _attr_native_unit_of_measurement = "c/kWh"
+    _attr_state_class = SensorStateClass.MEASUREMENT
+
+    def __init__(self, coordinator: NordpoolPredictCoordinator, entry: ConfigEntry) -> None:
+        super().__init__(coordinator, entry)
+        self._attr_unique_id = f"{entry.entry_id}_price_daily_average"
+        self._attr_name = "Daily Average Price"
+
+    @property
+    def native_value(self) -> float | None:
+        daily = self._current_daily_average()
+        if not daily:
+            return None
+        adjusted = self._apply_extra_fees(daily.average)
+        return round(adjusted, 1) if adjusted is not None else None
+
+    @property
+    def extra_state_attributes(self) -> Mapping[str, Any] | None:
+        daily_list = self._daily_averages()
+        entries = [
+            {
+                "date": item.date.isoformat(),
+                "start": item.start.isoformat(),
+                "end": item.end.isoformat(),
+                "average": round(self._apply_extra_fees(item.average), 1),
+                "hours": len(item.points),
+                "points": self._build_forecast_attributes(
+                    item.points,
+                    decimals=1,
+                    offset=self._extra_fees_cents(),
+                ),
+            }
+            for item in daily_list
+        ]
+        return {
+            ATTR_DAILY_AVERAGES: entries,
+            ATTR_RAW_SOURCE: self.coordinator.base_url,
+            ATTR_EXTRA_FEES: self._extra_fees_cents(),
+        }
+
+    def _current_daily_average(self) -> DailyAverage | None:
+        daily_list = self._daily_averages()
+        if not daily_list:
+            return None
+        now = getattr(self.coordinator, "current_time", None) or datetime.now(timezone.utc)
+        now_utc = now.astimezone(timezone.utc)
+        for item in daily_list:
+            start_utc = item.start.astimezone(timezone.utc)
+            end_utc = item.end.astimezone(timezone.utc)
+            if start_utc <= now_utc < end_utc:
+                return item
+        return None
 
 
 #region _price_next
