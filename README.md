@@ -22,6 +22,9 @@ All reported price states already include VAT as provided by Nordpool Predict FI
 | `sensor.nordpool_predict_fi_price_next_6h` | Sensor | Average price for the next 6 hours. |
 | `sensor.nordpool_predict_fi_price_next_12h` | Sensor | Average price for the next 12 hours. |
 | `number.nordpool_predict_fi_extra_fees` | Number | Adjustable surcharge (c/kWh) that is added to every price reading; defaults to 0.0. |
+| `number.nordpool_predict_fi_custom_window_hours` | Number | Duration in hours scanned by the customizable cheapest window sensor (1–24, default 4). |
+| `number.nordpool_predict_fi_custom_window_start_hour` | Number | First Helsinki hour (0–23) included when searching for the custom cheapest window. |
+| `number.nordpool_predict_fi_custom_window_end_hour` | Number | Last Helsinki hour (0–23) included when searching for the custom cheapest window; wrap around midnight by setting the end earlier than the start. |
 | `sensor.nordpool_predict_fi_windpower` | Optional sensor | Wind production forecast (MW) with the complete forecast series. |
 | `sensor.nordpool_predict_fi_windpower_now` | Optional sensor | Wind power value for the current hour with its timestamp. |
 | `sensor.nordpool_predict_fi_cheapest_3h_price_window` | Sensor | Lowest average of any 3-hour window in the data; attributes expose `window_start`, `window_end`, `window_points`, and `raw_source`. |
@@ -30,6 +33,8 @@ All reported price states already include VAT as provided by Nordpool Predict FI
 | `sensor.nordpool_predict_fi_cheapest_6h_window_active` | Sensor (boolean) | `True` when the 6-hour cheapest window includes the current hour. |
 | `sensor.nordpool_predict_fi_cheapest_12h_price_window` | Sensor | Tracks the cheapest 12-hour block for day-level planning. |
 | `sensor.nordpool_predict_fi_cheapest_12h_window_active` | Sensor (boolean) | `True` when the 12-hour cheapest block has already started. |
+| `sensor.nordpool_predict_fi_cheapest_custom_price_window` | Sensor | Lowest average across the configured custom window; attributes include window metadata alongside the hour mask. |
+| `sensor.nordpool_predict_fi_cheapest_custom_window_active` | Sensor (boolean) | `True` while the custom cheapest window is active. |
 | `sensor.nordpool_predict_fi_narration_fi` | Sensor | Finnish narration summary/ingress as the sensor state; the full Markdown lives in `content` with `source_url` pointing at the raw file. |
 | `sensor.nordpool_predict_fi_narration_en` | Sensor | English narration equivalent with the same attributes for dashboards or automations. |
 
@@ -104,7 +109,8 @@ The host needs tzdata with the `Europe/Helsinki` zone. If that package is missin
 - Daily averages sensor keeps a running list of full Helsinki days (00:00-23:00) with their averaged prices and the underlying hourly points for dashboard tables or charts.
 - Sähkötin CSV data for the current Helsinki day is merged with Nordpool Predict FI forecasts, so the `forecast` attribute already contains realized + predicted prices in one timeline.
 - The price sensor also exposes `forecast_start`, the first forecast hour after realized data, so dashboards can mark where predictions kick in.
-- Cheapest windows (3h, 6h, 12h) sweep the merged timeline starting at today’s Helsinki midnight, using realized prices first and forecast points after that; they stay selected while active and advance to the next cheapest upcoming block once finished.
+- Cheapest windows (3h, 6h, 12h) plus the configurable custom window sweep the merged timeline starting at today’s Helsinki midnight, using realized prices first and forecast points after that; they stay selected while active and advance to the next cheapest upcoming block once finished.
+- Custom cheapest window duration and the hour mask (start/end, Helsinki time) are controlled via the three number entities above; masks wrap across midnight when the end hour is earlier than the start.
 - All cheapest window calculations are done in the coordinator and exposed both as sensor states (average price) and attributes for automations; matching `*_window_active` sensors flip to `True` when the window currently covers the present hour.
 
 ## Data Sources

@@ -9,6 +9,12 @@ from aiohttp import ClientError
 from homeassistant.helpers.update_coordinator import UpdateFailed
 from zoneinfo import ZoneInfo
 
+from custom_components.nordpool_predict_fi.const import (
+    CUSTOM_WINDOW_KEY,
+    DEFAULT_CUSTOM_WINDOW_END_HOUR,
+    DEFAULT_CUSTOM_WINDOW_HOURS,
+    DEFAULT_CUSTOM_WINDOW_START_HOUR,
+)
 from custom_components.nordpool_predict_fi.coordinator import (
     NordpoolPredictCoordinator,
     PriceWindow,
@@ -139,6 +145,14 @@ async def test_coordinator_parses_series(hass, enable_custom_integrations, monke
     assert window_12h.end == datetime(2024, 1, 1, 12, 0, tzinfo=timezone.utc)
     assert window_12h.average == pytest.approx(10.5)
     assert window_12h.end > now
+    custom_section = price_section[CUSTOM_WINDOW_KEY]
+    assert custom_section["hours"] == DEFAULT_CUSTOM_WINDOW_HOURS
+    assert custom_section["start_hour"] == DEFAULT_CUSTOM_WINDOW_START_HOUR
+    assert custom_section["end_hour"] == DEFAULT_CUSTOM_WINDOW_END_HOUR
+    custom_window = custom_section["window"]
+    assert isinstance(custom_window, PriceWindow)
+    assert custom_window.duration_hours == DEFAULT_CUSTOM_WINDOW_HOURS
+    assert len(custom_window.points) == DEFAULT_CUSTOM_WINDOW_HOURS
     daily_averages = price_section["daily_averages"]
     assert len(daily_averages) == 2
     first_day = daily_averages[0]
@@ -418,6 +432,53 @@ async def test_fetch_json_invalid_payload_raises_update_failed(
 
     with pytest.raises(UpdateFailed):
         await coordinator._fetch_json(session, "prediction.json")
+
+
+@pytest.mark.asyncio
+async def test_custom_window_respects_hour_mask(hass, enable_custom_integrations) -> None:
+    coordinator = _coordinator(hass)
+    base = datetime(2024, 1, 1, 0, 0, tzinfo=timezone.utc)
+    series = [
+        SeriesPoint(datetime=base + timedelta(hours=offset), value=float(10 + offset))
+        for offset in range(24)
+    ]
+    now = base + timedelta(hours=10)
+    helsinki_tz = coordinator._get_helsinki_timezone()
+    custom_entry = coordinator._build_custom_window_entry(series, now, helsinki_tz)
+    coordinator.async_set_updated_data(
+        {
+            "price": {
+                "forecast": series,
+                "current": series[10],
+                "cheapest_windows": {},
+                CUSTOM_WINDOW_KEY: custom_entry,
+                "now": now,
+                "forecast_start": series[0].datetime,
+                "daily_averages": [],
+            },
+            "windpower": None,
+            "narration": {},
+        }
+    )
+
+    initial = coordinator.data["price"][CUSTOM_WINDOW_KEY]
+    assert isinstance(initial["window"], PriceWindow)
+    assert initial["window"].duration_hours == DEFAULT_CUSTOM_WINDOW_HOURS
+
+    coordinator.set_custom_window_start_hour(12)
+    coordinator.set_custom_window_end_hour(14)
+    narrowed = coordinator.data["price"][CUSTOM_WINDOW_KEY]
+    assert narrowed["window"] is None
+    assert narrowed["hours"] == DEFAULT_CUSTOM_WINDOW_HOURS
+
+    coordinator.set_custom_window_hours(2)
+    updated = coordinator.data["price"][CUSTOM_WINDOW_KEY]
+    assert updated["hours"] == 2
+    assert isinstance(updated["window"], PriceWindow)
+    assert updated["window"].duration_hours == 2
+    for point in updated["window"].points:
+        local_hour = point.datetime.astimezone(helsinki_tz).hour
+        assert 12 <= local_hour <= 14
 
 
 def _coordinator(hass) -> NordpoolPredictCoordinator:

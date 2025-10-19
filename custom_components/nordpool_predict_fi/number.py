@@ -17,10 +17,20 @@ from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from .const import (
     ATTR_EXTRA_FEES,
+    ATTR_CUSTOM_WINDOW_HOURS,
+    ATTR_CUSTOM_WINDOW_START_HOUR,
+    ATTR_CUSTOM_WINDOW_END_HOUR,
     DATA_COORDINATOR,
     DEFAULT_EXTRA_FEES_CENTS,
     DOMAIN,
     EXTRA_FEES_STEP_CENTS,
+    DEFAULT_CUSTOM_WINDOW_HOURS,
+    DEFAULT_CUSTOM_WINDOW_START_HOUR,
+    DEFAULT_CUSTOM_WINDOW_END_HOUR,
+    MAX_CUSTOM_WINDOW_HOURS,
+    MIN_CUSTOM_WINDOW_HOURS,
+    MAX_CUSTOM_WINDOW_HOUR,
+    MIN_CUSTOM_WINDOW_HOUR,
     MAX_EXTRA_FEES_CENTS,
     MIN_EXTRA_FEES_CENTS,
 )
@@ -35,7 +45,14 @@ async def async_setup_entry(
 ) -> None:
     coordinator: NordpoolPredictCoordinator = hass.data[DOMAIN][entry.entry_id][DATA_COORDINATOR]
 
-    async_add_entities([NordpoolExtraFeesNumber(coordinator, entry)])
+    async_add_entities(
+        [
+            NordpoolExtraFeesNumber(coordinator, entry),
+            NordpoolCustomWindowHoursNumber(coordinator, entry),
+            NordpoolCustomWindowStartHourNumber(coordinator, entry),
+            NordpoolCustomWindowEndHourNumber(coordinator, entry),
+        ]
+    )
 
 
 #region _number
@@ -98,3 +115,150 @@ class NordpoolExtraFeesNumber(CoordinatorEntity[NordpoolPredictCoordinator], Res
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
         return {ATTR_EXTRA_FEES: self._value}
+
+
+class _NordpoolCustomWindowBaseNumber(CoordinatorEntity[NordpoolPredictCoordinator], RestoreNumber, NumberEntity):
+    _attr_has_entity_name = True
+    _attr_mode = NumberMode.BOX
+    _attr_native_step = 1
+    _attr_native_unit_of_measurement = "h"
+
+    def __init__(self, coordinator: NordpoolPredictCoordinator, entry: ConfigEntry) -> None:
+        super().__init__(coordinator)
+        self._entry = entry
+        self._value: int = 0
+        self._attr_device_info = DeviceInfo(
+            identifiers={(DOMAIN, entry.entry_id)},
+            name="Nordpool Predict FI",
+            manufacturer="Nordpool Predict",
+        )
+
+    @property
+    def native_value(self) -> int:
+        return self._value
+
+    async def async_added_to_hass(self) -> None:
+        await super().async_added_to_hass()
+        restored = await self.async_get_last_number_data()
+        restored_value = restored.native_value if restored and restored.native_value is not None else None
+        self._value = self._restore_value(restored_value)
+        await self._apply_value(self._value)
+        if self.entity_id and self.platform:
+            self.async_write_ha_state()
+
+    async def async_set_native_value(self, value: float) -> None:
+        normalized = self._restore_value(value)
+        if normalized == self._value:
+            return
+        self._value = normalized
+        await self._apply_value(self._value)
+        if self.entity_id and self.platform:
+            self.async_write_ha_state()
+
+    def _handle_coordinator_update(self) -> None:
+        self._value = self._restore_value(self._read_from_coordinator())
+        if self.entity_id and self.platform:
+            super()._handle_coordinator_update()
+
+    def _restore_value(self, value: float | int | None) -> int:
+        raise NotImplementedError
+
+    async def _apply_value(self, value: int) -> None:
+        raise NotImplementedError
+
+    def _read_from_coordinator(self) -> int:
+        raise NotImplementedError
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        return {}
+
+
+class NordpoolCustomWindowHoursNumber(_NordpoolCustomWindowBaseNumber):
+    _attr_translation_key = "custom_window_hours"
+    _attr_icon = "mdi:clock-time-four-outline"
+    _attr_native_min_value = MIN_CUSTOM_WINDOW_HOURS
+    _attr_native_max_value = MAX_CUSTOM_WINDOW_HOURS
+
+    def __init__(self, coordinator: NordpoolPredictCoordinator, entry: ConfigEntry) -> None:
+        super().__init__(coordinator, entry)
+        self._value = DEFAULT_CUSTOM_WINDOW_HOURS
+        self._attr_unique_id = f"{entry.entry_id}_custom_window_hours"
+        self._attr_name = "Custom Window Hours"
+
+    def _restore_value(self, value: float | int | None) -> int:
+        if value is None:
+            return DEFAULT_CUSTOM_WINDOW_HOURS
+        coerced = int(round(float(value)))
+        bounded = max(MIN_CUSTOM_WINDOW_HOURS, min(MAX_CUSTOM_WINDOW_HOURS, coerced))
+        return bounded
+
+    async def _apply_value(self, value: int) -> None:
+        self.coordinator.set_custom_window_hours(value)
+
+    def _read_from_coordinator(self) -> int:
+        return int(self.coordinator.custom_window_hours)
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        return {ATTR_CUSTOM_WINDOW_HOURS: self._value}
+
+
+class NordpoolCustomWindowStartHourNumber(_NordpoolCustomWindowBaseNumber):
+    _attr_translation_key = "custom_window_start_hour"
+    _attr_icon = "mdi:clock-start"
+    _attr_native_min_value = MIN_CUSTOM_WINDOW_HOUR
+    _attr_native_max_value = MAX_CUSTOM_WINDOW_HOUR
+
+    def __init__(self, coordinator: NordpoolPredictCoordinator, entry: ConfigEntry) -> None:
+        super().__init__(coordinator, entry)
+        self._value = DEFAULT_CUSTOM_WINDOW_START_HOUR
+        self._attr_unique_id = f"{entry.entry_id}_custom_window_start_hour"
+        self._attr_name = "Custom Window Start Hour"
+
+    def _restore_value(self, value: float | int | None) -> int:
+        if value is None:
+            return DEFAULT_CUSTOM_WINDOW_START_HOUR
+        coerced = int(round(float(value)))
+        bounded = max(MIN_CUSTOM_WINDOW_HOUR, min(MAX_CUSTOM_WINDOW_HOUR, coerced))
+        return bounded
+
+    async def _apply_value(self, value: int) -> None:
+        self.coordinator.set_custom_window_start_hour(value)
+
+    def _read_from_coordinator(self) -> int:
+        return int(self.coordinator.custom_window_start_hour)
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        return {ATTR_CUSTOM_WINDOW_START_HOUR: self._value}
+
+
+class NordpoolCustomWindowEndHourNumber(_NordpoolCustomWindowBaseNumber):
+    _attr_translation_key = "custom_window_end_hour"
+    _attr_icon = "mdi:clock-end"
+    _attr_native_min_value = MIN_CUSTOM_WINDOW_HOUR
+    _attr_native_max_value = MAX_CUSTOM_WINDOW_HOUR
+
+    def __init__(self, coordinator: NordpoolPredictCoordinator, entry: ConfigEntry) -> None:
+        super().__init__(coordinator, entry)
+        self._value = DEFAULT_CUSTOM_WINDOW_END_HOUR
+        self._attr_unique_id = f"{entry.entry_id}_custom_window_end_hour"
+        self._attr_name = "Custom Window End Hour"
+
+    def _restore_value(self, value: float | int | None) -> int:
+        if value is None:
+            return DEFAULT_CUSTOM_WINDOW_END_HOUR
+        coerced = int(round(float(value)))
+        bounded = max(MIN_CUSTOM_WINDOW_HOUR, min(MAX_CUSTOM_WINDOW_HOUR, coerced))
+        return bounded
+
+    async def _apply_value(self, value: int) -> None:
+        self.coordinator.set_custom_window_end_hour(value)
+
+    def _read_from_coordinator(self) -> int:
+        return int(self.coordinator.custom_window_end_hour)
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        return {ATTR_CUSTOM_WINDOW_END_HOUR: self._value}

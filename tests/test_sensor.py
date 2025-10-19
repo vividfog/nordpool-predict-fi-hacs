@@ -8,6 +8,9 @@ from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.nordpool_predict_fi import sensor
 from custom_components.nordpool_predict_fi.const import (
+    ATTR_CUSTOM_WINDOW_END_HOUR,
+    ATTR_CUSTOM_WINDOW_HOURS,
+    ATTR_CUSTOM_WINDOW_START_HOUR,
     ATTR_DAILY_AVERAGES,
     ATTR_FORECAST,
     ATTR_FORECAST_START,
@@ -25,6 +28,7 @@ from custom_components.nordpool_predict_fi.const import (
     ATTR_WINDOW_POINTS,
     ATTR_WINDOW_START,
     CHEAPEST_WINDOW_HOURS,
+    CUSTOM_WINDOW_KEY,
     DATA_COORDINATOR,
     DOMAIN,
     NARRATION_LANGUAGES,
@@ -111,13 +115,36 @@ async def test_async_setup_entry_registers_entities(hass, enable_custom_integrat
         },
     }
 
+    custom_hours = 4
+    earliest_start_custom = now - timedelta(hours=custom_hours - 1)
+    custom_window = coordinator._find_cheapest_window(
+        merged_price_series,
+        custom_hours,
+        earliest_start=earliest_start_custom,
+        min_end=now,
+    )
+    if custom_window is None:
+        custom_window = coordinator._find_cheapest_window(
+            merged_price_series,
+            custom_hours,
+            earliest_start=earliest_start_custom,
+        )
+    custom_window_entry = {
+        "window": custom_window,
+        "hours": custom_hours,
+        "start_hour": 0,
+        "end_hour": 23,
+    }
+
     coordinator.async_set_updated_data(
         {
             "price": {
                 "forecast": merged_price_series,
                 "current": current_point,
                 "cheapest_windows": cheapest_windows,
+                CUSTOM_WINDOW_KEY: custom_window_entry,
                 "forecast_start": forecast_start,
+                "now": now,
                 "daily_averages": [daily_average],
             },
             "windpower": {
@@ -146,6 +173,7 @@ async def test_async_setup_entry_registers_entities(hass, enable_custom_integrat
         7  # Price, Price Now, Daily Average, and 4 next hour sensors
         + 2  # NordpoolWindpowerSensor and NordpoolWindpowerNowSensor
         + 2 * len(CHEAPEST_WINDOW_HOURS)  # Cheapest window value + active sensors
+        + 2  # Custom window value + active sensors
         + len(NARRATION_LANGUAGES)  # Narration sensors
     )
     assert len(added) == expected_entity_count
@@ -154,6 +182,10 @@ async def test_async_setup_entry_registers_entities(hass, enable_custom_integrat
     assert sum(isinstance(entity, sensor.NordpoolPriceDailyAverageSensor) for entity in added) == 1
     assert sum(isinstance(entity, sensor.NordpoolWindpowerSensor) for entity in added) == 1
     assert sum(isinstance(entity, sensor.NordpoolWindpowerNowSensor) for entity in added) == 1
+    assert sum(isinstance(entity, sensor.NordpoolCheapestCustomWindowSensor) for entity in added) == 1
+    assert (
+        sum(isinstance(entity, sensor.NordpoolCheapestCustomWindowActiveSensor) for entity in added) == 1
+    )
     assert sum(isinstance(entity, sensor.NordpoolNarrationSensor) for entity in added) == len(NARRATION_LANGUAGES)
     # Assert only expected entity classes are present
     allowed_types = (
@@ -165,6 +197,8 @@ async def test_async_setup_entry_registers_entities(hass, enable_custom_integrat
         sensor.NordpoolWindpowerNowSensor,
         sensor.NordpoolCheapestWindowSensor,
         sensor.NordpoolCheapestWindowActiveSensor,
+        sensor.NordpoolCheapestCustomWindowSensor,
+        sensor.NordpoolCheapestCustomWindowActiveSensor,
         sensor.NordpoolNarrationSensor,
     )
     assert all(isinstance(entity, allowed_types) for entity in added)
@@ -310,6 +344,48 @@ async def test_async_setup_entry_registers_entities(hass, enable_custom_integrat
             assert attrs_active[ATTR_WINDOW_POINTS] == []
         assert attrs_active[ATTR_EXTRA_FEES] == pytest.approx(0.0)
 
+    custom_sensor = next(
+        entity for entity in added if isinstance(entity, sensor.NordpoolCheapestCustomWindowSensor)
+    )
+    custom_attrs = custom_sensor.extra_state_attributes
+    assert custom_attrs[ATTR_CUSTOM_WINDOW_HOURS] == custom_hours
+    assert custom_attrs[ATTR_CUSTOM_WINDOW_START_HOUR] == 0
+    assert custom_attrs[ATTR_CUSTOM_WINDOW_END_HOUR] == 23
+    assert custom_attrs[ATTR_WINDOW_DURATION] == custom_hours
+    if custom_window:
+        assert custom_sensor.native_value == pytest.approx(round(custom_window.average, 1))
+        assert custom_attrs[ATTR_WINDOW_START] == custom_window.start.isoformat()
+        assert custom_attrs[ATTR_WINDOW_END] == custom_window.end.isoformat()
+        assert len(custom_attrs[ATTR_WINDOW_POINTS]) == len(custom_window.points)
+    else:
+        assert custom_sensor.native_value is None
+        assert custom_attrs[ATTR_WINDOW_START] is None
+        assert custom_attrs[ATTR_WINDOW_END] is None
+        assert custom_attrs[ATTR_WINDOW_POINTS] == []
+    assert custom_attrs[ATTR_RAW_SOURCE] == "https://example.com/deploy"
+    assert custom_attrs[ATTR_EXTRA_FEES] == pytest.approx(0.0)
+
+    custom_active = next(
+        entity for entity in added if isinstance(entity, sensor.NordpoolCheapestCustomWindowActiveSensor)
+    )
+    custom_active_attrs = custom_active.extra_state_attributes
+    expected_custom_active = bool(custom_window and custom_window.start <= now < custom_window.end)
+    assert custom_active.native_value is expected_custom_active
+    assert custom_active_attrs[ATTR_CUSTOM_WINDOW_HOURS] == custom_hours
+    assert custom_active_attrs[ATTR_CUSTOM_WINDOW_START_HOUR] == 0
+    assert custom_active_attrs[ATTR_CUSTOM_WINDOW_END_HOUR] == 23
+    assert custom_active_attrs[ATTR_WINDOW_DURATION] == custom_hours
+    if custom_window:
+        assert custom_active_attrs[ATTR_WINDOW_START] == custom_window.start.isoformat()
+        assert custom_active_attrs[ATTR_WINDOW_END] == custom_window.end.isoformat()
+        assert custom_active_attrs[ATTR_WINDOW_POINTS]
+    else:
+        assert custom_active_attrs[ATTR_WINDOW_START] is None
+        assert custom_active_attrs[ATTR_WINDOW_END] is None
+        assert custom_active_attrs[ATTR_WINDOW_POINTS] == []
+    assert custom_active_attrs[ATTR_RAW_SOURCE] == "https://example.com/deploy"
+    assert custom_active_attrs[ATTR_EXTRA_FEES] == pytest.approx(0.0)
+
     narrations = {
         entity.extra_state_attributes[ATTR_LANGUAGE]: entity
         for entity in added
@@ -328,19 +404,6 @@ async def test_async_setup_entry_registers_entities(hass, enable_custom_integrat
     assert en_sensor.native_value == narration_section["en"]["summary"]
     assert en_attrs[ATTR_NARRATION_CONTENT] == narration_section["en"]["content"]
     assert en_attrs[ATTR_SOURCE_URL] == narration_section["en"]["source"]
-
-    allowed_types = (
-        sensor.NordpoolPriceSensor,
-        sensor.NordpoolPriceNowSensor,
-        sensor.NordpoolPriceDailyAverageSensor,
-        sensor.NordpoolPriceNextHoursSensor,
-        sensor.NordpoolWindpowerSensor,
-        sensor.NordpoolWindpowerNowSensor,
-        sensor.NordpoolCheapestWindowSensor,
-        sensor.NordpoolCheapestWindowActiveSensor,
-        sensor.NordpoolNarrationSensor,
-    )
-    assert all(isinstance(e, allowed_types) for e in added)
 
 
 @pytest.mark.asyncio
@@ -394,13 +457,36 @@ async def test_price_entities_apply_extra_fees(hass, enable_custom_integrations)
         points=daily_points,
     )
 
+    custom_hours = 4
+    earliest_start_custom = now - timedelta(hours=custom_hours - 1)
+    custom_window = coordinator._find_cheapest_window(
+        merged_price_series,
+        custom_hours,
+        earliest_start=earliest_start_custom,
+        min_end=now,
+    )
+    if custom_window is None:
+        custom_window = coordinator._find_cheapest_window(
+            merged_price_series,
+            custom_hours,
+            earliest_start=earliest_start_custom,
+        )
+    custom_window_entry = {
+        "window": custom_window,
+        "hours": custom_hours,
+        "start_hour": 0,
+        "end_hour": 23,
+    }
+
     coordinator.async_set_updated_data(
         {
             "price": {
                 "forecast": merged_price_series,
                 "current": current_point,
                 "cheapest_windows": cheapest_windows,
+                CUSTOM_WINDOW_KEY: custom_window_entry,
                 "forecast_start": forecast_series[0].datetime,
+                "now": now,
                 "daily_averages": [daily_average],
             },
             "windpower": None,
@@ -499,6 +585,31 @@ async def test_price_entities_apply_extra_fees(hass, enable_custom_integrations)
         assert attrs_window[ATTR_RAW_SOURCE] == "https://example.com/deploy"
         assert attrs_window[ATTR_EXTRA_FEES] == pytest.approx(extra_fee)
 
+    custom_sensor = next(
+        entity for entity in added if isinstance(entity, sensor.NordpoolCheapestCustomWindowSensor)
+    )
+    custom_attrs = custom_sensor.extra_state_attributes
+    assert custom_attrs[ATTR_EXTRA_FEES] == pytest.approx(extra_fee)
+    assert custom_attrs[ATTR_CUSTOM_WINDOW_HOURS] == custom_hours
+    assert custom_attrs[ATTR_CUSTOM_WINDOW_START_HOUR] == 0
+    assert custom_attrs[ATTR_CUSTOM_WINDOW_END_HOUR] == 23
+    if custom_window:
+        expected_value = round(custom_window.average + extra_fee, 1)
+        assert custom_sensor.native_value == pytest.approx(expected_value)
+        assert custom_attrs[ATTR_WINDOW_POINTS]
+    else:
+        assert custom_sensor.native_value is None
+        assert custom_attrs[ATTR_WINDOW_POINTS] == []
+
+    custom_active = next(
+        entity for entity in added if isinstance(entity, sensor.NordpoolCheapestCustomWindowActiveSensor)
+    )
+    custom_active_attrs = custom_active.extra_state_attributes
+    expected_custom_active = bool(custom_window and custom_window.start <= now < custom_window.end)
+    assert custom_active.native_value is expected_custom_active
+    assert custom_active_attrs[ATTR_EXTRA_FEES] == pytest.approx(extra_fee)
+    assert custom_active_attrs[ATTR_CUSTOM_WINDOW_HOURS] == custom_hours
+
 
 @pytest.mark.asyncio
 async def test_async_setup_entry_handles_missing_wind_data(hass, enable_custom_integrations) -> None:
@@ -531,6 +642,13 @@ async def test_async_setup_entry_handles_missing_wind_data(hass, enable_custom_i
                 "current": None,
                 "cheapest_windows": {hours: None for hours in CHEAPEST_WINDOW_HOURS},
                 "forecast_start": forecast_start,
+                CUSTOM_WINDOW_KEY: {
+                    "window": None,
+                    "hours": 4,
+                    "start_hour": 0,
+                    "end_hour": 23,
+                },
+                "now": now,
             },
             "windpower": None,
             "narration": {
@@ -548,6 +666,7 @@ async def test_async_setup_entry_handles_missing_wind_data(hass, enable_custom_i
         7  # price sensors + daily + next hour sensors
         + 2  # wind sensors still registered
         + 2 * len(CHEAPEST_WINDOW_HOURS)
+        + 2  # custom window value + active sensors
         + len(NARRATION_LANGUAGES)
     )
 
@@ -564,6 +683,10 @@ async def test_async_setup_entry_handles_missing_wind_data(hass, enable_custom_i
     assert sum(isinstance(entity, sensor.NordpoolWindpowerNowSensor) for entity in added) == 1
     assert sum(isinstance(entity, sensor.NordpoolCheapestWindowSensor) for entity in added) == len(CHEAPEST_WINDOW_HOURS)
     assert sum(isinstance(entity, sensor.NordpoolCheapestWindowActiveSensor) for entity in added) == len(CHEAPEST_WINDOW_HOURS)
+    assert sum(isinstance(entity, sensor.NordpoolCheapestCustomWindowSensor) for entity in added) == 1
+    assert sum(
+        isinstance(entity, sensor.NordpoolCheapestCustomWindowActiveSensor) for entity in added
+    ) == 1
     attrs = next(entity for entity in added if isinstance(entity, sensor.NordpoolPriceSensor)).extra_state_attributes
     assert attrs[ATTR_FORECAST_START] == forecast_start.isoformat()
     assert ATTR_NEXT_VALID_FROM not in attrs
@@ -648,6 +771,28 @@ async def test_async_setup_entry_handles_missing_wind_data(hass, enable_custom_i
         assert attrs[ATTR_WINDOW_POINTS] == []
         assert attrs[ATTR_EXTRA_FEES] == pytest.approx(0.0)
 
+    custom_sensor = next(
+        entity for entity in added if isinstance(entity, sensor.NordpoolCheapestCustomWindowSensor)
+    )
+    custom_attrs = custom_sensor.extra_state_attributes
+    assert custom_sensor.native_value is None
+    assert custom_attrs[ATTR_CUSTOM_WINDOW_HOURS] == 4
+    assert custom_attrs[ATTR_CUSTOM_WINDOW_START_HOUR] == 0
+    assert custom_attrs[ATTR_CUSTOM_WINDOW_END_HOUR] == 23
+    assert custom_attrs[ATTR_WINDOW_POINTS] == []
+    assert custom_attrs[ATTR_EXTRA_FEES] == pytest.approx(0.0)
+
+    custom_active = next(
+        entity for entity in added if isinstance(entity, sensor.NordpoolCheapestCustomWindowActiveSensor)
+    )
+    custom_active_attrs = custom_active.extra_state_attributes
+    assert not custom_active.native_value
+    assert custom_active_attrs[ATTR_CUSTOM_WINDOW_HOURS] == 4
+    assert custom_active_attrs[ATTR_CUSTOM_WINDOW_START_HOUR] == 0
+    assert custom_active_attrs[ATTR_CUSTOM_WINDOW_END_HOUR] == 23
+    assert custom_active_attrs[ATTR_WINDOW_POINTS] == []
+    assert custom_active_attrs[ATTR_EXTRA_FEES] == pytest.approx(0.0)
+
     narration_entities = [
         entity for entity in added if isinstance(entity, sensor.NordpoolNarrationSensor)
     ]
@@ -668,6 +813,8 @@ async def test_async_setup_entry_handles_missing_wind_data(hass, enable_custom_i
         sensor.NordpoolWindpowerNowSensor,
         sensor.NordpoolCheapestWindowSensor,
         sensor.NordpoolCheapestWindowActiveSensor,
+        sensor.NordpoolCheapestCustomWindowSensor,
+        sensor.NordpoolCheapestCustomWindowActiveSensor,
         sensor.NordpoolNarrationSensor,
     )
     assert all(isinstance(entity, allowed_types) for entity in added)

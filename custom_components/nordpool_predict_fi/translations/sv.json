@@ -55,6 +55,12 @@
       "nordpool_predict_fi__cheapest_12h": {
         "name": "Billigaste 12h prisfönster"
       },
+      "nordpool_predict_fi__cheapest_custom": {
+        "name": "Billigaste anpassade prisfönster"
+      },
+      "nordpool_predict_fi__cheapest_custom_active": {
+        "name": "Billigaste anpassade fönster aktiv"
+      },
       "nordpool_predict_fi__price_now": {
         "name": "Pris nu"
       },
@@ -83,6 +89,15 @@
     "number": {
       "nordpool_predict_fi__extra_fees": {
         "name": "Extraavgift"
+      },
+      "nordpool_predict_fi__custom_window_hours": {
+        "name": "Anpassat fönster timmar"
+      },
+      "nordpool_predict_fi__custom_window_start_hour": {
+        "name": "Anpassat fönster starttimme"
+      },
+      "nordpool_predict_fi__custom_window_end_hour": {
+        "name": "Anpassat fönster sluttimme"
       }
     }
   }

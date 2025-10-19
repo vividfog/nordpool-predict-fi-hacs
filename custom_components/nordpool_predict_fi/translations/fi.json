@@ -55,6 +55,12 @@
       "nordpool_predict_fi__cheapest_12h": {
         "name": "Edullisin 12h hintajakso"
       },
+      "nordpool_predict_fi__cheapest_custom": {
+        "name": "Edullisin oma hintajakso"
+      },
+      "nordpool_predict_fi__cheapest_custom_active": {
+        "name": "Oma hintajakso käynnissä"
+      },
       "nordpool_predict_fi__price_now": {
         "name": "Hinta nyt"
       },
@@ -86,6 +92,15 @@
     "number": {
       "nordpool_predict_fi__extra_fees": {
         "name": "Lisämaksu"
+      },
+      "nordpool_predict_fi__custom_window_hours": {
+        "name": "Oman jakson tunnit"
+      },
+      "nordpool_predict_fi__custom_window_start_hour": {
+        "name": "Oman jakson aloitustunti"
+      },
+      "nordpool_predict_fi__custom_window_end_hour": {
+        "name": "Oman jakson lopputunti"
       }
     }
   }

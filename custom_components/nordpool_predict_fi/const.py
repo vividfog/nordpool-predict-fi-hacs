@@ -42,6 +42,9 @@ ATTR_SOURCE_URL = "source_url"
 ATTR_TIMESTAMP = "timestamp"
 ATTR_EXTRA_FEES = "extra_fees"
 ATTR_DAILY_AVERAGES = "daily_averages"
+ATTR_CUSTOM_WINDOW_HOURS = "custom_window_hours"
+ATTR_CUSTOM_WINDOW_START_HOUR = "custom_window_start_hour"
+ATTR_CUSTOM_WINDOW_END_HOUR = "custom_window_end_hour"
 
 CHEAPEST_WINDOW_HOURS: tuple[int, ...] = (3, 6, 12)
 NEXT_HOURS: tuple[int, ...] = (1, 3, 6, 12)
@@ -50,3 +53,12 @@ NARRATION_LANGUAGE_NAMES: dict[str, str] = {
     "fi": "FI",
     "en": "EN",
 }
+
+CUSTOM_WINDOW_KEY = "custom"
+DEFAULT_CUSTOM_WINDOW_HOURS = 4
+MIN_CUSTOM_WINDOW_HOURS = 1
+MAX_CUSTOM_WINDOW_HOURS = 24
+DEFAULT_CUSTOM_WINDOW_START_HOUR = 0
+DEFAULT_CUSTOM_WINDOW_END_HOUR = 23
+MIN_CUSTOM_WINDOW_HOUR = 0
+MAX_CUSTOM_WINDOW_HOUR = 23

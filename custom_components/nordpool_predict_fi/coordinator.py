@@ -6,7 +6,7 @@ import logging
 import csv
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta, time, timezone, tzinfo
-from typing import Any
+from typing import Any, Callable
 from urllib.parse import urlencode
 
 from aiohttp import ClientError, ClientResponseError, ContentTypeError
@@ -20,8 +20,16 @@ from .const import (
     CHEAPEST_WINDOW_HOURS,
     CONF_EXTRA_FEES,
     CONF_UPDATE_INTERVAL,
+    CUSTOM_WINDOW_KEY,
+    DEFAULT_CUSTOM_WINDOW_END_HOUR,
+    DEFAULT_CUSTOM_WINDOW_HOURS,
+    DEFAULT_CUSTOM_WINDOW_START_HOUR,
     DEFAULT_BASE_URL,
     DEFAULT_EXTRA_FEES_CENTS,
+    MAX_CUSTOM_WINDOW_HOURS,
+    MAX_CUSTOM_WINDOW_HOUR,
+    MIN_CUSTOM_WINDOW_HOURS,
+    MIN_CUSTOM_WINDOW_HOUR,
     SAHKOTIN_BASE_URL,
 )
 
@@ -85,6 +93,9 @@ class NordpoolPredictCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             if extra_fees_cents is not None
             else DEFAULT_EXTRA_FEES_CENTS
         )
+        self._custom_window_hours = DEFAULT_CUSTOM_WINDOW_HOURS
+        self._custom_window_start_hour = DEFAULT_CUSTOM_WINDOW_START_HOUR
+        self._custom_window_end_hour = DEFAULT_CUSTOM_WINDOW_END_HOUR
 
     @property
     def base_url(self) -> str:
@@ -103,6 +114,39 @@ class NordpoolPredictCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             return
         self._extra_fees_cents = normalized
         self.async_update_listeners()
+
+    @property
+    def custom_window_hours(self) -> int:
+        return self._custom_window_hours
+
+    def set_custom_window_hours(self, value: int) -> None:
+        normalized = self._normalize_custom_window_hours(value)
+        if normalized == self._custom_window_hours:
+            return
+        self._custom_window_hours = normalized
+        self._rebuild_custom_window_from_cached_data()
+
+    @property
+    def custom_window_start_hour(self) -> int:
+        return self._custom_window_start_hour
+
+    def set_custom_window_start_hour(self, value: int) -> None:
+        normalized = self._normalize_custom_window_hour(value)
+        if normalized == self._custom_window_start_hour:
+            return
+        self._custom_window_start_hour = normalized
+        self._rebuild_custom_window_from_cached_data()
+
+    @property
+    def custom_window_end_hour(self) -> int:
+        return self._custom_window_end_hour
+
+    def set_custom_window_end_hour(self, value: int) -> None:
+        normalized = self._normalize_custom_window_hour(value)
+        if normalized == self._custom_window_end_hour:
+            return
+        self._custom_window_end_hour = normalized
+        self._rebuild_custom_window_from_cached_data()
 
     @property
     def current_time(self) -> datetime:
@@ -192,9 +236,13 @@ class NordpoolPredictCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                     earliest_start=earliest_start,
                 )
             cheapest_windows[hours] = window
-        
 
-        
+        custom_window_entry = self._build_custom_window_entry(
+            merged_price_series,
+            now,
+            helsinki_tz,
+        )
+
         data: dict[str, Any] = {
             "price": {
                 "forecast": merged_price_series,
@@ -202,6 +250,7 @@ class NordpoolPredictCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 "cheapest_windows": cheapest_windows,
                 "now": now,
                 "forecast_start": price_forecast_start,
+                CUSTOM_WINDOW_KEY: custom_window_entry,
                 "daily_averages": self._calculate_daily_averages(
                     merged_price_series,
                     helsinki_tz,
@@ -405,6 +454,122 @@ class NordpoolPredictCoordinator(DataUpdateCoordinator[dict[str, Any]]):
     def _current_time() -> datetime:
         return datetime.now(timezone.utc)
 
+    #region _custom_window
+    def _rebuild_custom_window_from_cached_data(self) -> None:
+        data = self.data
+        if not isinstance(data, dict):
+            self.async_update_listeners()
+            return
+        price_section = data.get("price")
+        if not isinstance(price_section, dict):
+            self.async_update_listeners()
+            return
+        series = price_section.get("forecast")
+        if not isinstance(series, list):
+            price_section[CUSTOM_WINDOW_KEY] = self._empty_custom_window_entry()
+            self.async_update_listeners()
+            return
+        now = price_section.get("now")
+        if not isinstance(now, datetime):
+            now = self._current_time()
+        helsinki_tz = self._get_helsinki_timezone()
+        price_section[CUSTOM_WINDOW_KEY] = self._build_custom_window_entry(series, now, helsinki_tz)
+        self.async_update_listeners()
+
+    def _build_custom_window_entry(
+        self,
+        series: list[SeriesPoint],
+        now: datetime,
+        helsinki_tz: tzinfo,
+    ) -> dict[str, Any]:
+        window = self._find_custom_window(series, now, helsinki_tz)
+        return {
+            "window": window,
+            "hours": self._custom_window_hours,
+            "start_hour": self._custom_window_start_hour,
+            "end_hour": self._custom_window_end_hour,
+        }
+
+    def _find_custom_window(
+        self,
+        series: list[SeriesPoint],
+        now: datetime,
+        helsinki_tz: tzinfo,
+    ) -> PriceWindow | None:
+        hours = self._custom_window_hours
+        if hours <= 0:
+            return None
+        mask_hours = self._mask_hours(self._custom_window_start_hour, self._custom_window_end_hour)
+        if not mask_hours or hours > len(mask_hours):
+            return None
+        mask_set = set(mask_hours)
+        current_hour_anchor = now.replace(minute=0, second=0, microsecond=0)
+        earliest_start = current_hour_anchor - timedelta(hours=hours - 1)
+
+        def _filter(window_points: list[SeriesPoint]) -> bool:
+            return self._window_within_mask(window_points, helsinki_tz, mask_set)
+
+        window = self._find_cheapest_window(
+            series,
+            hours,
+            earliest_start=earliest_start,
+            min_end=now,
+            window_filter=_filter,
+        )
+        if window is None:
+            window = self._find_cheapest_window(
+                series,
+                hours,
+                earliest_start=earliest_start,
+                window_filter=_filter,
+            )
+        return window
+
+    def _mask_hours(self, start_hour: int, end_hour: int) -> list[int]:
+        start = self._normalize_custom_window_hour(start_hour)
+        end = self._normalize_custom_window_hour(end_hour)
+        if start <= end:
+            return list(range(start, end + 1))
+        forward = list(range(start, 24))
+        backward = list(range(0, end + 1))
+        return [*forward, *backward]
+
+    @staticmethod
+    def _window_within_mask(
+        window_points: list[SeriesPoint],
+        helsinki_tz: tzinfo,
+        mask_hours: set[int],
+    ) -> bool:
+        for point in window_points:
+            local_hour = point.datetime.astimezone(helsinki_tz).hour
+            if local_hour not in mask_hours:
+                return False
+        return True
+
+    def _normalize_custom_window_hours(self, value: int | float | None) -> int:
+        try:
+            coerced = int(round(float(value)))
+        except (TypeError, ValueError):
+            coerced = DEFAULT_CUSTOM_WINDOW_HOURS
+        bounded = max(MIN_CUSTOM_WINDOW_HOURS, min(MAX_CUSTOM_WINDOW_HOURS, coerced))
+        return bounded
+
+    def _normalize_custom_window_hour(self, value: int | float | None) -> int:
+        try:
+            coerced = int(round(float(value)))
+        except (TypeError, ValueError):
+            coerced = DEFAULT_CUSTOM_WINDOW_START_HOUR
+        bounded = max(MIN_CUSTOM_WINDOW_HOUR, min(MAX_CUSTOM_WINDOW_HOUR, coerced))
+        return bounded
+
+    def _empty_custom_window_entry(self) -> dict[str, Any]:
+        return {
+            "window": None,
+            "hours": self._custom_window_hours,
+            "start_hour": self._custom_window_start_hour,
+            "end_hour": self._custom_window_end_hour,
+        }
+
     
     def _get_helsinki_timezone(self) -> tzinfo:
         if self._helsinki_tz is not None:
@@ -424,6 +589,7 @@ class NordpoolPredictCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         hours: int,
         earliest_start: datetime | None = None,
         min_end: datetime | None = None,
+        window_filter: Callable[[list[SeriesPoint]], bool] | None = None,
     ) -> PriceWindow | None:
         if hours <= 0 or len(series) < hours:
             return None
@@ -432,6 +598,8 @@ class NordpoolPredictCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         for index in range(len(series) - hours + 1):
             window_points = series[index : index + hours]
             if not self._is_hourly_sequence(window_points):
+                continue
+            if window_filter and not window_filter(window_points):
                 continue
             start_time = window_points[0].datetime
             if earliest_start and start_time < earliest_start:
