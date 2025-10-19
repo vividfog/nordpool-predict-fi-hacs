@@ -22,7 +22,7 @@
   - Filters price and wind data ≥ `data_cutoff` to show aligned timelines.
   - Pulls Sähkötin CSV for the current Helsinki day and merges realized rows with forecast data from today onwards.
   - Current point found from merged series (latest point ≤ now). If no point exists at or before `now`, current is left unknown (no fallback to future).
-  - Cheapest windows (3h/6h/12h) calculated across entire merged series (realized + forecast).
+  - Cheapest windows (3h/6h/12h) calculated across the merged series beginning at today’s Helsinki midnight (realized data followed by forecast points).
 - Wind series filtered the same way as price (from today midnight).
 - Cheapest rolling windows (3h/6h/12h) are derived from contiguous hourly points across full merged data and cached for sensor use.
 - Full Helsinki days (00:00-23:00) are grouped into `DailyAverage` payloads for downstream sensors and UI.
@@ -46,7 +46,7 @@
   - `sensor.nordpool_predict_fi_windpower` → attributes `windpower_forecast`, `raw_source`.
   - `sensor.nordpool_predict_fi_windpower_now` → attributes `timestamp`, `raw_source`.
   - Naming is unified as `windpower` everywhere (not `wind_power`).
-- Cheapest price window sensors (`sensor.nordpool_predict_fi_cheapest_3h_price_window`, `..._6h_...`, `..._12h_...`) expose lowest rolling averages across entire data timeline along with `window_start`, `window_end`, `window_points`, and `raw_source` attributes.
+- Cheapest price window sensors (`sensor.nordpool_predict_fi_cheapest_3h_price_window`, `..._6h_...`, `..._12h_...`) expose lowest rolling averages across the Helsinki-today merged timeline along with `window_start`, `window_end`, `window_points`, and `raw_source` attributes.
  
 
 ## Configuration & Options
