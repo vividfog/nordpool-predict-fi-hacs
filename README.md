@@ -39,6 +39,42 @@ Narration sensors expose `language`, `summary` (state), `content` (full Markdown
 
 ---
 
+## Dashboard Cards
+
+Manual card snippets live in docs — see [`docs/README.md`](docs/README.md) for copy/paste steps. Install [ApexCharts Card](https://github.com/RomRider/apexcharts-card) (and Button Card for the table) before adding them to your dashboard.
+
+### Morning Briefing Summary
+
+[`npf_card_summary_fi.yaml`](docs/npf_card_summary_fi.yaml) and [`npf_card_summary_en.yaml`](docs/npf_card_summary_en.yaml) surface the short-form narrations; pair them with the full Markdown versions (`npf_card_narration_fi.yaml`, `npf_card_narration_en.yaml`) for longer notes.
+
+![Button Card showing the Finnish daily summary with price highlights](docs/npf_card_summary_fi.jpeg)
+
+### Daily Price Averages
+
+[`npf_card_daily_averages_button-card.yaml`](docs/npf_card_daily_averages_button-card.yaml) offers a button-card table layout with weekday labels plus daily min/avg/max columns.
+
+[`npf_card_daily_averages_md.yaml`](docs/npf_card_daily_averages_md.yaml) renders a simple Markdown table of each Helsinki day with average, min, and max prices.
+
+### Price vs. Wind Outlook
+
+[`npf_card_price.yaml`](docs/npf_card_price.yaml) combines realized + forecast prices with wind production so you can spot when generation pulls prices down.
+
+![ApexCharts price card showing realized prices, forecast, and wind overlay](docs/npf_card_price.jpeg)
+
+### Wind Production Spotlight
+
+[`npf_card_wind.yaml`](docs/npf_card_wind.yaml) flips the perspective to wind-first while keeping the price trace available for context across the week.
+
+![ApexCharts wind card showing wind power focus with price overlay](docs/npf_card_wind.png)
+
+### Cheapest Window Countdown
+
+[`npf_card_cheapest_countdown.yaml`](docs/npf_card_cheapest_countdown.yaml) presents the best 3 h, 6 h, and 12 h windows side by side, using Button Card to keep the layout compact.
+
+![Button Card table comparing cheapest 3h, 6h, and 12h price windows](docs/npf_card_cheapest_countdown.png)
+
+---
+
 ## Installation (HACS)
 
 1. Open HACS → Integrations → *Custom repositories* → add:
@@ -68,47 +104,13 @@ The host needs tzdata with the `Europe/Helsinki` zone. If that package is missin
 - Daily averages sensor keeps a running list of full Helsinki days (00:00-23:00) with their averaged prices and the underlying hourly points for dashboard tables or charts.
 - Sähkötin CSV data for the current Helsinki day is merged with Nordpool Predict FI forecasts, so the `forecast` attribute already contains realized + predicted prices in one timeline.
 - The price sensor also exposes `forecast_start`, the first forecast hour after realized data, so dashboards can mark where predictions kick in.
-- Cheapest windows (3h, 6h, 12h) sweep the merged timeline starting at today’s Helsinki midnight, using realized prices first and forecast points after that; once the lowest block begins it stays selected until the end of that window.
+- Cheapest windows (3h, 6h, 12h) sweep the merged timeline starting at today’s Helsinki midnight, using realized prices first and forecast points after that; they stay selected while active and advance to the next cheapest upcoming block once finished.
 - All cheapest window calculations are done in the coordinator and exposed both as sensor states (average price) and attributes for automations; matching `*_window_active` sensors flip to `True` when the window currently covers the present hour.
 
 ## Data Sources
 
 - Hourly realized prices: [Sähkötin](https://sahkotin.fi/hours)
 - Forecast artifacts: [`prediction.json`](https://raw.githubusercontent.com/vividfog/nordpool-predict-fi/main/deploy/prediction.json) and [`windpower.json`](https://raw.githubusercontent.com/vividfog/nordpool-predict-fi/main/deploy/windpower.json)
-
-## Dashboard Cards
-
-Manual card snippets live in docs — see [`docs/README.md`](docs/README.md) for copy/paste steps. Install [ApexCharts Card](https://github.com/RomRider/apexcharts-card) (and Button Card for the table) before adding them to your dashboard.
-
-### Daily Price Averages
-
-[`npf_card_daily_averages_button-card.yaml`](docs/npf_card_daily_averages_button-card.yaml) offers a button-card table layout with weekday labels plus daily min/avg/max columns.
-
-[`npf_card_daily_averages_md.yaml`](docs/npf_card_daily_averages_md.yaml) renders a simple Markdown table of each Helsinki day with average, min, and max prices.
-
-### Price vs. Wind Outlook
-
-[`npf_card_price.yaml`](docs/npf_card_price.yaml) combines realized + forecast prices with wind production so you can spot when generation pulls prices down.
-
-![ApexCharts price card showing realized prices, forecast, and wind overlay](docs/npf_card_price.jpeg)
-
-### Wind Production Spotlight
-
-[`npf_card_wind.yaml`](docs/npf_card_wind.yaml) flips the perspective to wind-first while keeping the price trace available for context across the week.
-
-![ApexCharts wind card showing wind power focus with price overlay](docs/npf_card_wind.png)
-
-### Cheapest Window Countdown
-
-[`npf_card_cheapest_countdown.yaml`](docs/npf_card_cheapest_countdown.yaml) presents the best 3 h, 6 h, and 12 h windows side by side, using Button Card to keep the layout compact.
-
-![Button Card table comparing cheapest 3h, 6h, and 12h price windows](docs/npf_card_cheapest_countdown.png)
-
-### Morning Briefing Summary
-
-[`npf_card_summary_fi.yaml`](docs/npf_card_summary_fi.yaml) and [`npf_card_summary_en.yaml`](docs/npf_card_summary_en.yaml) surface the short-form narrations; pair them with the full Markdown versions (`npf_card_narration_fi.yaml`, `npf_card_narration_en.yaml`) for longer notes.
-
-![Button Card showing the Finnish daily summary with price highlights](docs/npf_card_summary_fi.jpeg)
 
 ---
 

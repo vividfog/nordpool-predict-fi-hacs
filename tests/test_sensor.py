@@ -73,14 +73,22 @@ async def test_async_setup_entry_registers_entities(hass, enable_custom_integrat
     earliest_start_by_hours = {
         hours: now - timedelta(hours=hours - 1) for hours in CHEAPEST_WINDOW_HOURS
     }
-    cheapest_windows = {
-        hours: coordinator._find_cheapest_window(
+    cheapest_windows = {}
+    for hours in CHEAPEST_WINDOW_HOURS:
+        earliest_start = earliest_start_by_hours[hours]
+        window = coordinator._find_cheapest_window(
             merged_price_series,
             hours,
-            earliest_start=earliest_start_by_hours[hours],
+            earliest_start=earliest_start,
+            min_end=now,
         )
-        for hours in CHEAPEST_WINDOW_HOURS
-    }
+        if window is None:
+            window = coordinator._find_cheapest_window(
+                merged_price_series,
+                hours,
+                earliest_start=earliest_start,
+            )
+        cheapest_windows[hours] = window
     day_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
     daily_points = [_series_point(hour, 10.0 + hour, day_start) for hour in range(24)]
     daily_average = DailyAverage(
@@ -360,14 +368,22 @@ async def test_price_entities_apply_extra_fees(hass, enable_custom_integrations)
     earliest_start_by_hours = {
         hours: now - timedelta(hours=hours - 1) for hours in CHEAPEST_WINDOW_HOURS
     }
-    cheapest_windows = {
-        hours: coordinator._find_cheapest_window(
+    cheapest_windows = {}
+    for hours in CHEAPEST_WINDOW_HOURS:
+        earliest_start = earliest_start_by_hours[hours]
+        window = coordinator._find_cheapest_window(
             merged_price_series,
             hours,
-            earliest_start=earliest_start_by_hours[hours],
+            earliest_start=earliest_start,
+            min_end=now,
         )
-        for hours in CHEAPEST_WINDOW_HOURS
-    }
+        if window is None:
+            window = coordinator._find_cheapest_window(
+                merged_price_series,
+                hours,
+                earliest_start=earliest_start,
+            )
+        cheapest_windows[hours] = window
     day_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
     daily_points = [_series_point(hour, 20.0 + hour, day_start) for hour in range(24)]
     daily_average = DailyAverage(

@@ -176,14 +176,22 @@ class NordpoolPredictCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         current_hour_anchor = now.replace(minute=0, second=0, microsecond=0)
 
         # Calculate cheapest windows using windows that may already be in progress
-        cheapest_windows = {
-            hours: self._find_cheapest_window(
+        cheapest_windows: dict[int, PriceWindow | None] = {}
+        for hours in CHEAPEST_WINDOW_HOURS:
+            earliest_start = current_hour_anchor - timedelta(hours=hours - 1)
+            window = self._find_cheapest_window(
                 merged_price_series,
                 hours,
-                earliest_start=current_hour_anchor - timedelta(hours=hours - 1),
+                earliest_start=earliest_start,
+                min_end=now,
             )
-            for hours in CHEAPEST_WINDOW_HOURS
-        }
+            if window is None:
+                window = self._find_cheapest_window(
+                    merged_price_series,
+                    hours,
+                    earliest_start=earliest_start,
+                )
+            cheapest_windows[hours] = window
         
 
         
@@ -415,6 +423,7 @@ class NordpoolPredictCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         series: list[SeriesPoint],
         hours: int,
         earliest_start: datetime | None = None,
+        min_end: datetime | None = None,
     ) -> PriceWindow | None:
         if hours <= 0 or len(series) < hours:
             return None
@@ -427,9 +436,11 @@ class NordpoolPredictCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             start_time = window_points[0].datetime
             if earliest_start and start_time < earliest_start:
                 continue
+            end_time = window_points[-1].datetime + timedelta(hours=1)
+            if min_end and end_time <= min_end:
+                continue
             average = sum(point.value for point in window_points) / hours
             if best_window is None or average < best_window.average:
-                end_time = window_points[-1].datetime + timedelta(hours=1)
                 best_window = PriceWindow(
                     duration_hours=hours,
                     start=start_time,

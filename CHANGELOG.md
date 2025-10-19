@@ -10,7 +10,7 @@ All notable changes to this project are documented here. This project follows th
 
 ### Changed
 - Price sensors now expose `extra_fees` attributes and include the configured surcharge in forecast, now, next-hour averages, and cheapest window outputs.
-- Cheapest price window selection now keeps windows that began earlier in the day, so automations can react immediately when a cheapest block starts.
+- Cheapest price window selection now keeps windows that began earlier in the day so automations can react immediately when a cheapest block starts, and advances to the next candidate once the active window finishes.
 
 ## 2025-10-14
 ### Added

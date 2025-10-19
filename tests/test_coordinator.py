@@ -123,6 +123,7 @@ async def test_coordinator_parses_series(hass, enable_custom_integrations, monke
     assert window_3h.start >= current_hour_anchor - timedelta(hours=2)
     assert window_3h.end == datetime(2024, 1, 1, 16, 0, tzinfo=timezone.utc)
     assert window_3h.average == pytest.approx(14.0)
+    assert window_3h.end > now
     assert len(window_3h.points) == 3
     window_6h = windows[6]
     assert isinstance(window_6h, PriceWindow)
@@ -130,12 +131,14 @@ async def test_coordinator_parses_series(hass, enable_custom_integrations, monke
     assert window_6h.start >= current_hour_anchor - timedelta(hours=5)
     assert window_6h.end == datetime(2024, 1, 1, 12, 0, tzinfo=timezone.utc)
     assert window_6h.average == pytest.approx(13.5)
+    assert window_6h.end > now
     window_12h = windows[12]
     assert isinstance(window_12h, PriceWindow)
     assert window_12h.start == datetime(2024, 1, 1, 0, 0, tzinfo=timezone.utc)
     assert window_12h.start >= current_hour_anchor - timedelta(hours=11)
     assert window_12h.end == datetime(2024, 1, 1, 12, 0, tzinfo=timezone.utc)
     assert window_12h.average == pytest.approx(10.5)
+    assert window_12h.end > now
     daily_averages = price_section["daily_averages"]
     assert len(daily_averages) == 2
     first_day = daily_averages[0]

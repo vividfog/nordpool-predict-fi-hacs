@@ -64,7 +64,11 @@ custom_fields:
             countdown = `${fmtCountdown(diffStart)}`;
           } else if (end) {
             const diffEnd = end.getTime() - now.getTime();
-            countdown = diffEnd > 0 ? `${fmtCountdown(diffEnd)} jäljellä` : '<0 min';
+            if (diffEnd > 0) {
+              countdown = 'Nyt';
+            } else {
+              countdown = 'Päättynyt';
+            }
           } else {
             countdown = 'Käynnissä';
           }
