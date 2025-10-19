@@ -46,7 +46,8 @@
   - `sensor.nordpool_predict_fi_windpower` → attributes `windpower_forecast`, `raw_source`.
   - `sensor.nordpool_predict_fi_windpower_now` → attributes `timestamp`, `raw_source`.
   - Naming is unified as `windpower` everywhere (not `wind_power`).
-- Cheapest price window sensors (`sensor.nordpool_predict_fi_cheapest_3h_price_window`, `..._6h_...`, `..._12h_...`) expose lowest rolling averages across the Helsinki-today merged timeline (skipping windows that ended before `now`) along with `window_start`, `window_end`, `window_points`, and `raw_source` attributes.
+- Cheapest price window sensors (`sensor.nordpool_predict_fi_cheapest_{3|6|12}h_price_window`) expose lowest rolling averages across the Helsinki-today merged timeline (skipping windows that ended before `now`) along with `window_start`, `window_end`, `window_points`, and `raw_source` attributes. The matching `*_window_active` sensors flip to `True` while that window includes the present hour.
+- The configurable cheapest window pair (`sensor.nordpool_predict_fi_cheapest_custom_price_window` and `_window_active`) uses the duration and hour mask from the three number entities (`number.nordpool_predict_fi_custom_window_{hours|start_hour|end_hour}`) and exposes the selected mask in `custom_window_*` attributes.
  
 
 ## Configuration & Options
