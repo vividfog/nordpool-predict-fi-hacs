@@ -9,12 +9,15 @@ All notable changes to this project are documented here. This project follows th
 - Boolean cheapest-window helper sensors (`sensor.nordpool_predict_fi_cheapest_{3|6|12}h_window_active`) that report when the chosen window currently includes the present hour.
 - Custom cheapest window sensor pair (`sensor.nordpool_predict_fi_cheapest_custom_price_window` / `_window_active`) plus number entities for duration and hour mask configuration.
 - `number.nordpool_predict_fi_custom_window_lookahead_hours` to cap the custom cheapest window search horizon and surface the configured horizon via entity attributes.
+- Shared `number.nordpool_predict_fi_cheapest_window_lookahead_hours` to bound all fixed cheapest window calculations for up to seven days ahead.
 
 ### Changed
 - Price sensors now expose `extra_fees` attributes and include the configured surcharge in forecast, now, next-hour averages, and cheapest window outputs.
 - Cheapest price window selection now keeps windows that began earlier in the day so automations can react immediately when a cheapest block starts, and advances to the next candidate once the active window finishes.
 - Daily average price sensor now reports the mean across all available full Helsinki days and exposes `daily_average_span_start`/`daily_average_span_end` attributes for transparency.
 - Custom cheapest window selection enforces the configured lookahead horizon so results never extend past the user-defined forward window.
+- Cheapest window sensors (fixed + custom) expose the shared `window_lookahead_hours`/`window_lookahead_limit` attributes for transparency and obey the global lookahead cap.
+- Default shared cheapest-window lookahead now starts at 168 hours to cover the full seven-day forecast range.
 
 ## 2025-10-14
 ### Added

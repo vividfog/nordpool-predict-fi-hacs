@@ -33,6 +33,8 @@ from .const import (
     ATTR_TIMESTAMP,
     ATTR_WIND_FORECAST,
     ATTR_WINDOW_DURATION,
+    ATTR_WINDOW_LOOKAHEAD_HOURS,
+    ATTR_WINDOW_LOOKAHEAD_LIMIT,
     ATTR_WINDOW_END,
     ATTR_WINDOW_POINTS,
     ATTR_WINDOW_START,
@@ -435,10 +437,13 @@ class _NordpoolCheapestWindowBaseSensor(NordpoolBaseSensor):
         return self._cheapest_window(self._hours)
 
     def _window_attributes(self, window: PriceWindow | None) -> dict[str, Any]:
+        meta = self._cheapest_windows_meta()
         attributes: dict[str, Any] = {
             ATTR_RAW_SOURCE: self.coordinator.base_url,
             ATTR_WINDOW_DURATION: self._hours,
             ATTR_EXTRA_FEES: self._extra_fees_cents(),
+            ATTR_WINDOW_LOOKAHEAD_HOURS: self._coerce_int(meta.get("lookahead_hours")),
+            ATTR_WINDOW_LOOKAHEAD_LIMIT: self._coerce_datetime_iso(meta.get("lookahead_limit")),
         }
         if window:
             attributes[ATTR_WINDOW_START] = window.start.isoformat()
@@ -453,6 +458,29 @@ class _NordpoolCheapestWindowBaseSensor(NordpoolBaseSensor):
             attributes[ATTR_WINDOW_END] = None
             attributes[ATTR_WINDOW_POINTS] = []
         return attributes
+
+    def _cheapest_windows_meta(self) -> Mapping[str, Any]:
+        section = self._price_section()
+        if not section:
+            return {}
+        meta = section.get("cheapest_windows_meta")
+        if isinstance(meta, Mapping):
+            return meta
+        return {}
+
+    @staticmethod
+    def _coerce_int(value: Any) -> int | None:
+        if isinstance(value, bool):
+            return int(value)
+        if isinstance(value, (int, float)):
+            return int(value)
+        return None
+
+    @staticmethod
+    def _coerce_datetime_iso(value: Any) -> str | None:
+        if isinstance(value, datetime):
+            return value.isoformat()
+        return None
 
 
 class NordpoolCheapestWindowSensor(_NordpoolCheapestWindowBaseSensor):
@@ -530,6 +558,7 @@ class _NordpoolCheapestCustomWindowBaseSensor(NordpoolBaseSensor):
         hours = self._coerce_int(section.get("hours"))
         start_hour = self._coerce_int(section.get("start_hour"))
         end_hour = self._coerce_int(section.get("end_hour"))
+        shared_meta = self._shared_meta()
         attributes: dict[str, Any] = {
             ATTR_RAW_SOURCE: self.coordinator.base_url,
             ATTR_WINDOW_DURATION: hours,
@@ -541,6 +570,8 @@ class _NordpoolCheapestCustomWindowBaseSensor(NordpoolBaseSensor):
             ATTR_CUSTOM_WINDOW_LOOKAHEAD_LIMIT: self._coerce_datetime_iso(
                 section.get("lookahead_limit")
             ),
+            ATTR_WINDOW_LOOKAHEAD_HOURS: self._coerce_int(shared_meta.get("lookahead_hours")),
+            ATTR_WINDOW_LOOKAHEAD_LIMIT: self._coerce_datetime_iso(shared_meta.get("lookahead_limit")),
         }
         if window:
             attributes[ATTR_WINDOW_START] = window.start.isoformat()
@@ -555,6 +586,15 @@ class _NordpoolCheapestCustomWindowBaseSensor(NordpoolBaseSensor):
             attributes[ATTR_WINDOW_END] = None
             attributes[ATTR_WINDOW_POINTS] = []
         return attributes
+
+    def _shared_meta(self) -> Mapping[str, Any]:
+        section = self._price_section()
+        if not section:
+            return {}
+        meta = section.get("cheapest_windows_meta")
+        if isinstance(meta, Mapping):
+            return meta
+        return {}
 
     @staticmethod
     def _coerce_int(value: Any) -> int | None:

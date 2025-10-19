@@ -24,7 +24,7 @@
   - Current point found from merged series (latest point ≤ now). If no point exists at or before `now`, current is left unknown (no fallback to future).
   - Cheapest windows (3h/6h/12h) calculated across the merged series beginning at today’s Helsinki midnight (realized data followed by forecast points), preferring windows whose end is still ahead of `now`.
 - Wind series filtered the same way as price (from today midnight).
-- Cheapest rolling windows (3h/6h/12h) are derived from contiguous hourly points across full merged data and cached for sensor use.
+- Cheapest rolling windows (3h/6h/12h) are derived from contiguous hourly points across full merged data and cached for sensor use. All fixed windows respect a shared lookahead horizon (hours ahead from the current hour anchor); candidate windows must end before the horizon expires.
 - Full Helsinki days (00:00-23:00) are grouped into `DailyAverage` payloads for downstream sensors and UI.
 - Custom cheapest window searches honour a user-defined lookahead horizon (hours ahead from the current hour anchor); candidate windows must end before the horizon expires.
 - Networking via `aiohttp` session + `async_timeout`.
@@ -47,8 +47,8 @@
   - `sensor.nordpool_predict_fi_windpower` → attributes `windpower_forecast`, `raw_source`.
   - `sensor.nordpool_predict_fi_windpower_now` → attributes `timestamp`, `raw_source`.
   - Naming is unified as `windpower` everywhere (not `wind_power`).
-- Cheapest price window sensors (`sensor.nordpool_predict_fi_cheapest_{3|6|12}h_price_window`) expose lowest rolling averages across the Helsinki-today merged timeline (skipping windows that ended before `now`) along with `window_start`, `window_end`, `window_points`, and `raw_source` attributes. The matching `*_window_active` sensors flip to `True` while that window includes the present hour.
-- The configurable cheapest window pair (`sensor.nordpool_predict_fi_cheapest_custom_price_window` and `_window_active`) uses the duration, hour mask, and lookahead horizon from four number entities (`number.nordpool_predict_fi_custom_window_{hours|start_hour|end_hour|lookahead_hours}`) and exposes the selected mask plus lookahead metadata in `custom_window_*` attributes.
+- Cheapest price window sensors (`sensor.nordpool_predict_fi_cheapest_{3|6|12}h_price_window`) expose lowest rolling averages across the Helsinki-today merged timeline (skipping windows that ended before `now`) along with `window_start`, `window_end`, `window_points`, `window_lookahead_hours`, `window_lookahead_limit`, and `raw_source` attributes. The matching `*_window_active` sensors flip to `True` while that window includes the present hour.
+- The configurable cheapest window pair (`sensor.nordpool_predict_fi_cheapest_custom_price_window` and `_window_active`) uses the duration, hour mask, and lookahead horizons from five number entities (`number.nordpool_predict_fi_cheapest_window_lookahead_hours` plus `number.nordpool_predict_fi_custom_window_{hours|start_hour|end_hour|lookahead_hours}`) and exposes the selected mask plus lookahead metadata in `custom_window_*` attributes while also mirroring the shared `window_lookahead_*` values.
  
 
 ## Configuration & Options

@@ -21,18 +21,22 @@ from .const import (
     ATTR_CUSTOM_WINDOW_START_HOUR,
     ATTR_CUSTOM_WINDOW_END_HOUR,
     ATTR_CUSTOM_WINDOW_LOOKAHEAD_HOURS,
+    ATTR_WINDOW_LOOKAHEAD_HOURS,
     DATA_COORDINATOR,
     DEFAULT_EXTRA_FEES_CENTS,
     DOMAIN,
     EXTRA_FEES_STEP_CENTS,
+    DEFAULT_CHEAPEST_WINDOW_LOOKAHEAD_HOURS,
     DEFAULT_CUSTOM_WINDOW_HOURS,
     DEFAULT_CUSTOM_WINDOW_START_HOUR,
     DEFAULT_CUSTOM_WINDOW_END_HOUR,
     DEFAULT_CUSTOM_WINDOW_LOOKAHEAD_HOURS,
+    MAX_CHEAPEST_WINDOW_LOOKAHEAD_HOURS,
     MAX_CUSTOM_WINDOW_HOURS,
     MIN_CUSTOM_WINDOW_HOURS,
     MAX_CUSTOM_WINDOW_HOUR,
     MIN_CUSTOM_WINDOW_HOUR,
+    MIN_CHEAPEST_WINDOW_LOOKAHEAD_HOURS,
     MAX_CUSTOM_WINDOW_LOOKAHEAD_HOURS,
     MIN_CUSTOM_WINDOW_LOOKAHEAD_HOURS,
     MAX_EXTRA_FEES_CENTS,
@@ -52,6 +56,7 @@ async def async_setup_entry(
     async_add_entities(
         [
             NordpoolExtraFeesNumber(coordinator, entry),
+            NordpoolCheapestWindowLookaheadHoursNumber(coordinator, entry),
             NordpoolCustomWindowHoursNumber(coordinator, entry),
             NordpoolCustomWindowStartHourNumber(coordinator, entry),
             NordpoolCustomWindowEndHourNumber(coordinator, entry),
@@ -177,6 +182,42 @@ class _NordpoolCustomWindowBaseNumber(CoordinatorEntity[NordpoolPredictCoordinat
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
         return {}
+
+
+class NordpoolCheapestWindowLookaheadHoursNumber(_NordpoolCustomWindowBaseNumber):
+    _attr_translation_key = "cheapest_window_lookahead_hours"
+    _attr_icon = "mdi:timeline-clock-outline"
+    _attr_native_min_value = MIN_CHEAPEST_WINDOW_LOOKAHEAD_HOURS
+    _attr_native_max_value = MAX_CHEAPEST_WINDOW_LOOKAHEAD_HOURS
+
+    def __init__(self, coordinator: NordpoolPredictCoordinator, entry: ConfigEntry) -> None:
+        super().__init__(coordinator, entry)
+        self._value = DEFAULT_CHEAPEST_WINDOW_LOOKAHEAD_HOURS
+        self._attr_unique_id = f"{entry.entry_id}_cheapest_window_lookahead_hours"
+        self._attr_name = "Cheapest Window Lookahead Hours"
+
+    def _restore_value(self, value: float | int | None) -> int:
+        if value is None:
+            return DEFAULT_CHEAPEST_WINDOW_LOOKAHEAD_HOURS
+        try:
+            coerced = int(round(float(value)))
+        except (TypeError, ValueError):
+            coerced = DEFAULT_CHEAPEST_WINDOW_LOOKAHEAD_HOURS
+        bounded = max(
+            MIN_CHEAPEST_WINDOW_LOOKAHEAD_HOURS,
+            min(MAX_CHEAPEST_WINDOW_LOOKAHEAD_HOURS, coerced),
+        )
+        return bounded
+
+    async def _apply_value(self, value: int) -> None:
+        self.coordinator.set_cheapest_window_lookahead_hours(value)
+
+    def _read_from_coordinator(self) -> int:
+        return int(self.coordinator.cheapest_window_lookahead_hours)
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        return {ATTR_WINDOW_LOOKAHEAD_HOURS: self._value}
 
 
 class NordpoolCustomWindowHoursNumber(_NordpoolCustomWindowBaseNumber):

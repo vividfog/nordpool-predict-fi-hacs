@@ -123,6 +123,9 @@ async def test_coordinator_parses_series(hass, enable_custom_integrations, monke
     # Cheapest windows may include the current hour but not start more than duration-1 hours ago
     current_hour_anchor = now.replace(minute=0, second=0, microsecond=0)
     windows = price_section["cheapest_windows"]
+    windows_meta = price_section["cheapest_windows_meta"]
+    assert windows_meta["lookahead_hours"] == coordinator.cheapest_window_lookahead_hours
+    assert windows_meta["lookahead_limit"] == coordinator._cheapest_window_lookahead_limit(now)
     window_3h = windows[3]
     assert isinstance(window_3h, PriceWindow)
     assert window_3h.start == datetime(2024, 1, 1, 13, 0, tzinfo=timezone.utc)
@@ -522,6 +525,77 @@ async def test_custom_window_respects_lookahead_limit(hass, enable_custom_integr
     assert isinstance(expanded_window, PriceWindow)
     assert expanded_window.start == base + timedelta(hours=20)
     assert expanded_window.end == base + timedelta(hours=24)
+
+
+def test_cheapest_windows_respect_shared_lookahead(hass, enable_custom_integrations, monkeypatch) -> None:
+    coordinator = _coordinator(hass)
+    base = datetime(2024, 1, 1, 0, 0, tzinfo=timezone.utc)
+    now = base
+    monkeypatch.setattr(coordinator, "_current_time", lambda: now)
+    series = [
+        SeriesPoint(datetime=base + timedelta(hours=offset), value=float(offset))
+        for offset in range(200)
+    ]
+
+    coordinator.async_set_updated_data(
+        {
+            "price": {
+                "forecast": series,
+                "current": series[0],
+                "cheapest_windows": {},
+                "cheapest_windows_meta": {},
+                CUSTOM_WINDOW_KEY: coordinator._empty_custom_window_entry(),
+                "now": now,
+                "forecast_start": series[0].datetime,
+                "daily_averages": [],
+            },
+            "windpower": None,
+            "narration": {},
+        }
+    )
+    coordinator._rebuild_cheapest_windows_from_cached_data()
+
+    meta = coordinator.data["price"]["cheapest_windows_meta"]
+    limit_default = coordinator._cheapest_window_lookahead_limit(now)
+    assert meta["lookahead_hours"] == coordinator.cheapest_window_lookahead_hours == 168
+    assert meta["lookahead_limit"] == limit_default
+
+    updates = 0
+
+    def _capture_update() -> None:
+        nonlocal updates
+        updates += 1
+
+    monkeypatch.setattr(coordinator, "async_update_listeners", _capture_update)
+
+    coordinator.set_cheapest_window_lookahead_hours(100)
+    assert coordinator.cheapest_window_lookahead_hours == 100
+    assert updates == 1
+    limit_100 = coordinator._cheapest_window_lookahead_limit(now)
+    meta_mid = coordinator.data["price"]["cheapest_windows_meta"]
+    assert meta_mid["lookahead_hours"] == 100
+    assert meta_mid["lookahead_limit"] == limit_100
+
+    coordinator.set_cheapest_window_lookahead_hours(200)
+    assert coordinator.cheapest_window_lookahead_hours == 168
+    assert updates == 2
+    expected_limit = coordinator._cheapest_window_lookahead_limit(now)
+    meta_post = coordinator.data["price"]["cheapest_windows_meta"]
+    assert meta_post["lookahead_hours"] == 168
+    assert meta_post["lookahead_limit"] == expected_limit
+    rebuilt_windows = coordinator.data["price"]["cheapest_windows"]
+    for window in rebuilt_windows.values():
+        if window is None:
+            continue
+        assert window.end <= expected_limit
+
+    coordinator.set_cheapest_window_lookahead_hours(0)
+    assert coordinator.cheapest_window_lookahead_hours == 1
+    assert updates == 3
+    meta_min = coordinator.data["price"]["cheapest_windows_meta"]
+    assert meta_min["lookahead_hours"] == 1
+    min_limit = coordinator._cheapest_window_lookahead_limit(now)
+    assert meta_min["lookahead_limit"] == min_limit
 
 
 def _coordinator(hass) -> NordpoolPredictCoordinator:

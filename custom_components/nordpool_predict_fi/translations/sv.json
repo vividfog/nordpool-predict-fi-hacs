@@ -101,6 +101,9 @@
       },
       "nordpool_predict_fi__custom_window_lookahead_hours": {
         "name": "Anpassat fönster framåttimmar"
+      },
+      "nordpool_predict_fi__cheapest_window_lookahead_hours": {
+        "name": "Billigaste fönster framåttimmar"
       }
     }
   }

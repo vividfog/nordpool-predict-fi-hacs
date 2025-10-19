@@ -104,6 +104,9 @@
       },
       "nordpool_predict_fi__custom_window_lookahead_hours": {
         "name": "Oman jakson ennakkotunnit"
+      },
+      "nordpool_predict_fi__cheapest_window_lookahead_hours": {
+        "name": "Halvimman jakson ennakkotunnit"
       }
     }
   }

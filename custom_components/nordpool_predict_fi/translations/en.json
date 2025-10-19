@@ -104,6 +104,9 @@
       },
       "nordpool_predict_fi__custom_window_lookahead_hours": {
         "name": "Custom Window Lookahead Hours"
+      },
+      "nordpool_predict_fi__cheapest_window_lookahead_hours": {
+        "name": "Cheapest Window Lookahead Hours"
       }
     }
   }

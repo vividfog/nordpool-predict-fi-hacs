@@ -8,14 +8,17 @@ from custom_components.nordpool_predict_fi.const import (
     ATTR_EXTRA_FEES,
     DATA_COORDINATOR,
     DOMAIN,
+    DEFAULT_CHEAPEST_WINDOW_LOOKAHEAD_HOURS,
     DEFAULT_CUSTOM_WINDOW_END_HOUR,
     DEFAULT_CUSTOM_WINDOW_HOURS,
     DEFAULT_CUSTOM_WINDOW_START_HOUR,
     DEFAULT_CUSTOM_WINDOW_LOOKAHEAD_HOURS,
+    MAX_CHEAPEST_WINDOW_LOOKAHEAD_HOURS,
     MAX_CUSTOM_WINDOW_HOUR,
     MAX_CUSTOM_WINDOW_HOURS,
     MAX_CUSTOM_WINDOW_LOOKAHEAD_HOURS,
     MAX_EXTRA_FEES_CENTS,
+    MIN_CHEAPEST_WINDOW_LOOKAHEAD_HOURS,
     MIN_CUSTOM_WINDOW_HOUR,
     MIN_CUSTOM_WINDOW_HOURS,
     MIN_CUSTOM_WINDOW_LOOKAHEAD_HOURS,
@@ -53,7 +56,7 @@ async def test_extra_fees_number_updates_coordinator(hass, enable_custom_integra
 
     await number.async_setup_entry(hass, entry, _add_entities)
 
-    assert len(added) == 5
+    assert len(added) == 6
 
     for index, entity in enumerate(added, start=1):
         entity.hass = hass
@@ -69,6 +72,11 @@ async def test_extra_fees_number_updates_coordinator(hass, enable_custom_integra
     )
     end_number = next(
         entity for entity in added if isinstance(entity, number.NordpoolCustomWindowEndHourNumber)
+    )
+    global_lookahead_number = next(
+        entity
+        for entity in added
+        if isinstance(entity, number.NordpoolCheapestWindowLookaheadHoursNumber)
     )
     lookahead_number = next(
         entity
@@ -122,6 +130,43 @@ async def test_extra_fees_number_updates_coordinator(hass, enable_custom_integra
     await end_number.async_set_native_value(MIN_CUSTOM_WINDOW_HOUR - 3)
     assert end_number.native_value == MIN_CUSTOM_WINDOW_HOUR
     assert coordinator.custom_window_end_hour == MIN_CUSTOM_WINDOW_HOUR
+
+    assert (
+        global_lookahead_number.native_value
+        == DEFAULT_CHEAPEST_WINDOW_LOOKAHEAD_HOURS
+    )
+    assert (
+        coordinator.cheapest_window_lookahead_hours
+        == DEFAULT_CHEAPEST_WINDOW_LOOKAHEAD_HOURS
+    )
+    assert (
+        global_lookahead_number.extra_state_attributes["window_lookahead_hours"]
+        == DEFAULT_CHEAPEST_WINDOW_LOOKAHEAD_HOURS
+    )
+
+    await global_lookahead_number.async_set_native_value(
+        MAX_CHEAPEST_WINDOW_LOOKAHEAD_HOURS + 10
+    )
+    assert (
+        global_lookahead_number.native_value
+        == MAX_CHEAPEST_WINDOW_LOOKAHEAD_HOURS
+    )
+    assert (
+        coordinator.cheapest_window_lookahead_hours
+        == MAX_CHEAPEST_WINDOW_LOOKAHEAD_HOURS
+    )
+
+    await global_lookahead_number.async_set_native_value(
+        MIN_CHEAPEST_WINDOW_LOOKAHEAD_HOURS - 5
+    )
+    assert (
+        global_lookahead_number.native_value
+        == MIN_CHEAPEST_WINDOW_LOOKAHEAD_HOURS
+    )
+    assert (
+        coordinator.cheapest_window_lookahead_hours
+        == MIN_CHEAPEST_WINDOW_LOOKAHEAD_HOURS
+    )
 
     assert lookahead_number.native_value == DEFAULT_CUSTOM_WINDOW_LOOKAHEAD_HOURS
     assert coordinator.custom_window_lookahead_hours == DEFAULT_CUSTOM_WINDOW_LOOKAHEAD_HOURS
