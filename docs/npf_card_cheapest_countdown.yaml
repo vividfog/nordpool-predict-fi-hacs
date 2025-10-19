@@ -14,9 +14,10 @@ custom_fields:
   table: |
     [[[
       const windows = [
-        { id: 'sensor.nordpool_predict_fi_cheapest_3h_price_window', label: '3 h', accent: '#5E81AC', duration: 3 },
-        { id: 'sensor.nordpool_predict_fi_cheapest_6h_price_window', label: '6 h', accent: '#81A1C1', duration: 6 },
-        { id: 'sensor.nordpool_predict_fi_cheapest_12h_price_window', label: '12 h', accent: '#88C0D0', duration: 12 }
+        { id: 'sensor.nordpool_predict_fi_cheapest_3h_price_window', label: '3 h', accent: 'SkyBlue', duration: 3 },
+        { id: 'sensor.nordpool_predict_fi_cheapest_6h_price_window', label: '6 h', accent: 'DeepSkyBlue', duration: 6 },
+        { id: 'sensor.nordpool_predict_fi_cheapest_12h_price_window', label: '12 h', accent: 'DodgerBlue', duration: 12 },
+        { id: 'sensor.nordpool_predict_fi_cheapest_custom_price_window', label: 'Oma', accent: 'MediumSlateBlue' }
       ];
       const now = new Date();
       const fmtCountdown = (ms) => {
@@ -52,7 +53,7 @@ custom_fields:
         const attr = entity.attributes || {};
         const duration = attr.window_duration_hours ?? cfg.duration ?? '?';
         const avg = Number(entity.state);
-        const avgCell = Number.isFinite(avg) ? `${avg.toFixed(1)} ¢/kWh` : '—';
+        const avgCell = Number.isFinite(avg) ? `${avg.toFixed(1)}` : '—';
         const start = attr.window_start ? new Date(attr.window_start) : null;
         const end = attr.window_end ? new Date(attr.window_end) : null;
         let startCell = '—';
@@ -81,7 +82,7 @@ custom_fields:
                 ${duration} h
               </span>
             </td>
-            <td style="padding:12px 8px; font-size:18px; font-weight:600; text-align:left;">${avgCell}</td>
+            <td style="padding:12px 8px; font-size:18px; font-weight:600; text-align:middle;">${avgCell}</td>
             <td style="padding:12px 8px; font-size:18px; font-weight:600; text-align:left; white-space:nowrap;">${countdown}</td>
             <td style="padding:12px 8px; white-space:nowrap; text-align:left;">${startCell}</td>
           </tr>
@@ -97,9 +98,9 @@ custom_fields:
             <col style="width:25%;">
           </colgroup>
           <thead>
-            <tr style="text-align:left;">
+            <tr style="text-align:middle;">
               <th style="padding:0 8px 8px; font-size:13px; font-weight:600; opacity:0.7; text-align:left;">Halvin jakso</th>
-              <th style="padding:0 8px 8px; font-size:13px; font-weight:600; opacity:0.7; text-align:left;">Keskihinta</th>
+              <th style="padding:0 8px 8px; font-size:13px; font-weight:600; opacity:0.7; text-align:middle;">Keskihinta<br>¢/kWh</th>
               <th style="padding:0 8px 8px; font-size:13px; font-weight:600; opacity:0.7; text-align:left;">Alkuun</th>
               <th style="padding:0 8px 8px; font-size:13px; font-weight:600; opacity:0.7; text-align:left;">Alkaa</th>
             </tr>
