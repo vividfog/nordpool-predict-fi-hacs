@@ -1,6 +1,6 @@
-# Lovelace Cards (Copy/Paste)
+# Lovelace Cards & Automation Templates
 
-These are ready-to-use Lovelace card snippets for the Nordpool Predict FI integration. Use them by copying the YAML into a Manual card in your dashboard.
+These are ready-to-use Lovelace card snippets plus a polling automation example for the Nordpool Predict FI integration. Use the card YAML in Manual dashboard cards, and drop the automation into YAML mode within Settings → Automations & Scenes.
 
 ## Requirements
 - Install ApexCharts Card via HACS (Frontend → ApexCharts Card).
@@ -20,8 +20,16 @@ These are ready-to-use Lovelace card snippets for the Nordpool Predict FI integr
    - `npf_card_narration_en.yaml` — full English narration (Markdown content).
    - `npf_card_summary_fi.yaml` — short Finnish summary (sensor state).
    - `npf_card_summary_en.yaml` — short English summary (sensor state).
+   - `automation_cheapest_6h.yaml` — automation template that pings every 10 minutes and reacts once the cheapest 6-hour window is active.
 
 3) Paste into the Manual card and save. If you have renamed entities, adjust the entity IDs in the YAML.
+
+### Automation example
+
+1) `Settings → Automations & Scenes → Automations → Create Automation → Start with empty automation`.
+2) Switch to YAML mode (three-dot menu → *Edit in YAML*).
+3) Replace the content with `automation_cheapest_6h.yaml`.
+4) Adjust the numeric price threshold and action to suit your EV charger.
 
 ## Troubleshooting
 

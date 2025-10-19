@@ -173,14 +173,14 @@ class NordpoolPredictCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 break
         
         price_forecast_start = self._forecast_start_from_segments(realized_series, forecast_from_today)
-        next_window_anchor = now.replace(minute=0, second=0, microsecond=0) + timedelta(hours=1)
+        current_hour_anchor = now.replace(minute=0, second=0, microsecond=0)
 
-        # Calculate cheapest windows using future windows only
+        # Calculate cheapest windows using windows that may already be in progress
         cheapest_windows = {
             hours: self._find_cheapest_window(
                 merged_price_series,
                 hours,
-                earliest_start=next_window_anchor,
+                earliest_start=current_hour_anchor - timedelta(hours=hours - 1),
             )
             for hours in CHEAPEST_WINDOW_HOURS
         }

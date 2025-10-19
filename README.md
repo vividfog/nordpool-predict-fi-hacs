@@ -4,7 +4,9 @@
 
 The integration shows all available data from today (Helsinki time) onwards. Price data combines [Sähkötin](https://sahkotin.fi/hours) realized prices with forecast data, transitioning from actual to predicted values. Wind power data is shown similarly.
 
-Cheapest windows work across the entire data timeline, using both realized and forecast data to find the most economical future price windows throughout the week.
+Cheapest windows evaluate every hour from today’s Helsinki midnight onward, blending realized and forecast data to highlight the lowest-priced future blocks throughout the week.
+
+All reported price states already include VAT as provided by Nordpool Predict FI.
 
 ---
 
@@ -23,8 +25,11 @@ Cheapest windows work across the entire data timeline, using both realized and f
 | `sensor.nordpool_predict_fi_windpower` | Optional sensor | Wind production forecast (MW) with the complete forecast series. |
 | `sensor.nordpool_predict_fi_windpower_now` | Optional sensor | Wind power value for the current hour with its timestamp. |
 | `sensor.nordpool_predict_fi_cheapest_3h_price_window` | Sensor | Lowest average of any 3-hour window in the data; attributes expose `window_start`, `window_end`, `window_points`, and `raw_source`. |
+| `sensor.nordpool_predict_fi_cheapest_3h_window_active` | Sensor (boolean) | `True` while the selected 3-hour cheapest window is currently in progress. |
 | `sensor.nordpool_predict_fi_cheapest_6h_price_window` | Sensor | Same as above for 6-hour windows, useful for longer running appliances. |
+| `sensor.nordpool_predict_fi_cheapest_6h_window_active` | Sensor (boolean) | `True` when the 6-hour cheapest window includes the current hour. |
 | `sensor.nordpool_predict_fi_cheapest_12h_price_window` | Sensor | Tracks the cheapest 12-hour block for day-level planning. |
+| `sensor.nordpool_predict_fi_cheapest_12h_window_active` | Sensor (boolean) | `True` when the 12-hour cheapest block has already started. |
 | `sensor.nordpool_predict_fi_narration_fi` | Sensor | Finnish narration summary/ingress as the sensor state; the full Markdown lives in `content` with `source_url` pointing at the raw file. |
 | `sensor.nordpool_predict_fi_narration_en` | Sensor | English narration equivalent with the same attributes for dashboards or automations. |
 
@@ -63,8 +68,8 @@ The host needs tzdata with the `Europe/Helsinki` zone. If that package is missin
 - Daily averages sensor keeps a running list of full Helsinki days (00:00-23:00) with their averaged prices and the underlying hourly points for dashboard tables or charts.
 - Sähkötin CSV data for the current Helsinki day is merged with Nordpool Predict FI forecasts, so the `forecast` attribute already contains realized + predicted prices in one timeline.
 - The price sensor also exposes `forecast_start`, the first forecast hour after realized data, so dashboards can mark where predictions kick in.
-- Cheapest windows (3h, 6h, 12h) work across the entire available data, using both realized and forecast prices to find the most economical periods throughout the week.
-- All cheapest window calculations are done in the coordinator and exposed both as sensor states (average price) and attributes for automations.
+- Cheapest windows (3h, 6h, 12h) sweep the merged timeline starting at today’s Helsinki midnight, using realized prices first and forecast points after that; once the lowest block begins it stays selected until the end of that window.
+- All cheapest window calculations are done in the coordinator and exposed both as sensor states (average price) and attributes for automations; matching `*_window_active` sensors flip to `True` when the window currently covers the present hour.
 
 ## Data Sources
 

@@ -1,0 +1,22 @@
+# Example automation that polls every 10 minutes and reacts as soon as the
+# cheapest 6-hour window is in progress and the live price stays below a
+# comfort threshold. Replace the action block with your EV charger service.
+alias: Charge EV In Cheapest 6h Window
+mode: single
+trigger:
+  - platform: time_pattern
+    minutes: "/10"
+condition:
+  - condition: state
+    entity_id: sensor.nordpool_predict_fi_cheapest_6h_window_active
+    state: "True"
+  - condition: numeric_state
+    entity_id: sensor.nordpool_predict_fi_price_now
+    below: 20
+action:
+  - service: persistent_notification.create
+    data:
+      title: Cheapest 6h window active
+      message: >-
+        Replace this notify with your EV charger service call. Automation fired
+        at {{ now() }}.

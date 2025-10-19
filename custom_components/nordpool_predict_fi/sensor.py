@@ -64,6 +64,10 @@ async def async_setup_entry(
         NordpoolCheapestWindowSensor(coordinator, entry, hours) for hours in CHEAPEST_WINDOW_HOURS
     )
     entities.extend(
+        NordpoolCheapestWindowActiveSensor(coordinator, entry, hours)
+        for hours in CHEAPEST_WINDOW_HOURS
+    )
+    entities.extend(
         (
             NordpoolWindpowerSensor(coordinator, entry),
             NordpoolWindpowerNowSensor(coordinator, entry),
@@ -393,32 +397,19 @@ class NordpoolPriceNextHoursSensor(NordpoolBaseSensor):
 
 
 #region _windows
-class NordpoolCheapestWindowSensor(NordpoolBaseSensor):
-    _attr_icon = "mdi:clock-check-outline"
-    _attr_native_unit_of_measurement = "c/kWh"
-    _attr_state_class = SensorStateClass.MEASUREMENT
-
+class _NordpoolCheapestWindowBaseSensor(NordpoolBaseSensor):
     def __init__(self, coordinator: NordpoolPredictCoordinator, entry: ConfigEntry, hours: int) -> None:
         super().__init__(coordinator, entry)
         self._hours = hours
-        self._attr_translation_key = f"cheapest_{hours}h"
-        self._attr_unique_id = f"{entry.entry_id}_cheapest_{hours}h"
-        self._attr_name = f"Cheapest {hours}h Price Window"
 
-    @property
-    def native_value(self) -> float | None:
-        window = self._cheapest_window(self._hours)
-        if not window:
-            return None
-        adjusted = self._apply_extra_fees(window.average)
-        return round(adjusted, 1)
+    def _window(self) -> PriceWindow | None:
+        return self._cheapest_window(self._hours)
 
-    @property
-    def extra_state_attributes(self) -> Mapping[str, Any] | None:
-        window = self._cheapest_window(self._hours)
+    def _window_attributes(self, window: PriceWindow | None) -> dict[str, Any]:
         attributes: dict[str, Any] = {
             ATTR_RAW_SOURCE: self.coordinator.base_url,
             ATTR_WINDOW_DURATION: self._hours,
+            ATTR_EXTRA_FEES: self._extra_fees_cents(),
         }
         if window:
             attributes[ATTR_WINDOW_START] = window.start.isoformat()
@@ -432,8 +423,55 @@ class NordpoolCheapestWindowSensor(NordpoolBaseSensor):
             attributes[ATTR_WINDOW_START] = None
             attributes[ATTR_WINDOW_END] = None
             attributes[ATTR_WINDOW_POINTS] = []
-        attributes[ATTR_EXTRA_FEES] = self._extra_fees_cents()
         return attributes
+
+
+class NordpoolCheapestWindowSensor(_NordpoolCheapestWindowBaseSensor):
+    _attr_icon = "mdi:clock-check-outline"
+    _attr_native_unit_of_measurement = "c/kWh"
+    _attr_state_class = SensorStateClass.MEASUREMENT
+
+    def __init__(self, coordinator: NordpoolPredictCoordinator, entry: ConfigEntry, hours: int) -> None:
+        super().__init__(coordinator, entry, hours)
+        self._attr_translation_key = f"cheapest_{hours}h"
+        self._attr_unique_id = f"{entry.entry_id}_cheapest_{hours}h"
+        self._attr_name = f"Cheapest {hours}h Price Window"
+
+    @property
+    def native_value(self) -> float | None:
+        window = self._window()
+        if not window:
+            return None
+        adjusted = self._apply_extra_fees(window.average)
+        return round(adjusted, 1)
+
+    @property
+    def extra_state_attributes(self) -> Mapping[str, Any] | None:
+        window = self._window()
+        return self._window_attributes(window)
+
+
+class NordpoolCheapestWindowActiveSensor(_NordpoolCheapestWindowBaseSensor):
+    _attr_icon = "mdi:clock-start"
+
+    def __init__(self, coordinator: NordpoolPredictCoordinator, entry: ConfigEntry, hours: int) -> None:
+        super().__init__(coordinator, entry, hours)
+        self._attr_translation_key = f"cheapest_{hours}h_active"
+        self._attr_unique_id = f"{entry.entry_id}_cheapest_{hours}h_active"
+        self._attr_name = f"Cheapest {hours}h Window Active"
+
+    @property
+    def native_value(self) -> bool:
+        window = self._window()
+        if not window:
+            return False
+        now = getattr(self.coordinator, "current_time", None) or datetime.now(timezone.utc)
+        return window.start <= now < window.end
+
+    @property
+    def extra_state_attributes(self) -> Mapping[str, Any] | None:
+        window = self._window()
+        return self._window_attributes(window)
 
 
 #region _windpower
