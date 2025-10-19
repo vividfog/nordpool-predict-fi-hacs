@@ -16,7 +16,7 @@ All reported price states already include VAT as provided by Nordpool Predict FI
 | --- | --- | --- |
 | `sensor.nordpool_predict_fi_price` | Sensor | Continuous hourly price timeline (`c/kWh`) built from Sähkötin realizations + Nordpool Predict forecasts. |
 | `sensor.nordpool_predict_fi_price_now` | Sensor | Latest price value at or before the current hour, plus the timestamp it originated from. |
-| `sensor.nordpool_predict_fi_daily_average_price` | Sensor | Average price for each full Helsinki day (00:00-23:00); attributes list per-day breakdowns including hourly points. |
+| `sensor.nordpool_predict_fi_price_daily_average` | Sensor | Average price across all full Helsinki days currently available; attributes include per-day breakdowns plus `daily_average_span_start`/`daily_average_span_end` to mark the aggregated window. |
 | `sensor.nordpool_predict_fi_price_next_1h` | Sensor | Average price for the next starting 1 hour. |
 | `sensor.nordpool_predict_fi_price_next_3h` | Sensor | Average price for the next 3 hours. |
 | `sensor.nordpool_predict_fi_price_next_6h` | Sensor | Average price for the next 6 hours. |
@@ -25,6 +25,7 @@ All reported price states already include VAT as provided by Nordpool Predict FI
 | `number.nordpool_predict_fi_custom_window_hours` | Number | Duration in hours scanned by the customizable cheapest window sensor (1–24, default 4). |
 | `number.nordpool_predict_fi_custom_window_start_hour` | Number | First Helsinki hour (0–23) included when searching for the custom cheapest window. |
 | `number.nordpool_predict_fi_custom_window_end_hour` | Number | Last Helsinki hour (0–23) included when searching for the custom cheapest window; wrap around midnight by setting the end earlier than the start. |
+| `number.nordpool_predict_fi_custom_window_lookahead_hours` | Number | Forward horizon in hours (1–168, default 72) used when scanning for the custom cheapest window; candidate windows must finish before this horizon ends. |
 | `sensor.nordpool_predict_fi_windpower` | Optional sensor | Wind production forecast (MW) with the complete forecast series. |
 | `sensor.nordpool_predict_fi_windpower_now` | Optional sensor | Wind power value for the current hour with its timestamp. |
 | `sensor.nordpool_predict_fi_cheapest_3h_price_window` | Sensor | Lowest average of any 3-hour window in the data; attributes expose `window_start`, `window_end`, `window_points`, and `raw_source`. |
@@ -33,7 +34,7 @@ All reported price states already include VAT as provided by Nordpool Predict FI
 | `sensor.nordpool_predict_fi_cheapest_6h_window_active` | Sensor (boolean) | `True` when the 6-hour cheapest window includes the current hour. |
 | `sensor.nordpool_predict_fi_cheapest_12h_price_window` | Sensor | Tracks the cheapest 12-hour block for day-level planning. |
 | `sensor.nordpool_predict_fi_cheapest_12h_window_active` | Sensor (boolean) | `True` when the 12-hour cheapest block has already started. |
-| `sensor.nordpool_predict_fi_cheapest_custom_price_window` | Sensor | Lowest average across the configured custom window; attributes include window metadata alongside the hour mask. |
+| `sensor.nordpool_predict_fi_cheapest_custom_price_window` | Sensor | Lowest average across the configured custom window; attributes include window metadata, hour mask, and lookahead settings. |
 | `sensor.nordpool_predict_fi_cheapest_custom_window_active` | Sensor (boolean) | `True` while the custom cheapest window is active. |
 | `sensor.nordpool_predict_fi_narration_fi` | Sensor | Finnish narration summary/ingress as the sensor state; the full Markdown lives in `content` with `source_url` pointing at the raw file. |
 | `sensor.nordpool_predict_fi_narration_en` | Sensor | English narration equivalent with the same attributes for dashboards or automations. |

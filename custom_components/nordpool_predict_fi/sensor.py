@@ -16,7 +16,11 @@ from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from .const import (
     ATTR_CUSTOM_WINDOW_END_HOUR,
     ATTR_CUSTOM_WINDOW_HOURS,
+    ATTR_CUSTOM_WINDOW_LOOKAHEAD_HOURS,
+    ATTR_CUSTOM_WINDOW_LOOKAHEAD_LIMIT,
     ATTR_CUSTOM_WINDOW_START_HOUR,
+    ATTR_DAILY_AVERAGE_SPAN_END,
+    ATTR_DAILY_AVERAGE_SPAN_START,
     ATTR_FORECAST,
     ATTR_FORECAST_START,
     ATTR_DAILY_AVERAGES,
@@ -333,15 +337,21 @@ class NordpoolPriceDailyAverageSensor(NordpoolBaseSensor):
 
     @property
     def native_value(self) -> float | None:
-        daily = self._current_daily_average()
-        if not daily:
+        points = self._aggregate_points()
+        if not points:
             return None
-        adjusted = self._apply_extra_fees(daily.average)
+        average = sum(point.value for point in points) / len(points)
+        adjusted = self._apply_extra_fees(average)
         return round(adjusted, 1) if adjusted is not None else None
 
     @property
     def extra_state_attributes(self) -> Mapping[str, Any] | None:
         daily_list = self._daily_averages()
+        span_start = None
+        span_end = None
+        if daily_list:
+            span_start = min((item.start for item in daily_list), default=None)
+            span_end = max((item.end for item in daily_list), default=None)
         entries = [
             {
                 "date": item.date.isoformat(),
@@ -361,7 +371,16 @@ class NordpoolPriceDailyAverageSensor(NordpoolBaseSensor):
             ATTR_DAILY_AVERAGES: entries,
             ATTR_RAW_SOURCE: self.coordinator.base_url,
             ATTR_EXTRA_FEES: self._extra_fees_cents(),
+            ATTR_DAILY_AVERAGE_SPAN_START: span_start.isoformat() if span_start else None,
+            ATTR_DAILY_AVERAGE_SPAN_END: span_end.isoformat() if span_end else None,
         }
+
+    def _aggregate_points(self) -> list[SeriesPoint]:
+        daily_list = self._daily_averages()
+        points: list[SeriesPoint] = []
+        for item in daily_list:
+            points.extend(item.points)
+        return points
 
     def _current_daily_average(self) -> DailyAverage | None:
         daily_list = self._daily_averages()
@@ -518,6 +537,10 @@ class _NordpoolCheapestCustomWindowBaseSensor(NordpoolBaseSensor):
             ATTR_CUSTOM_WINDOW_HOURS: hours,
             ATTR_CUSTOM_WINDOW_START_HOUR: start_hour,
             ATTR_CUSTOM_WINDOW_END_HOUR: end_hour,
+            ATTR_CUSTOM_WINDOW_LOOKAHEAD_HOURS: self._coerce_int(section.get("lookahead_hours")),
+            ATTR_CUSTOM_WINDOW_LOOKAHEAD_LIMIT: self._coerce_datetime_iso(
+                section.get("lookahead_limit")
+            ),
         }
         if window:
             attributes[ATTR_WINDOW_START] = window.start.isoformat()
@@ -539,6 +562,12 @@ class _NordpoolCheapestCustomWindowBaseSensor(NordpoolBaseSensor):
             return int(value)
         if isinstance(value, (int, float)):
             return int(value)
+        return None
+
+    @staticmethod
+    def _coerce_datetime_iso(value: Any) -> str | None:
+        if isinstance(value, datetime):
+            return value.isoformat()
         return None
 
 

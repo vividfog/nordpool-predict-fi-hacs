@@ -101,6 +101,9 @@
       },
       "nordpool_predict_fi__custom_window_end_hour": {
         "name": "Custom Window End Hour"
+      },
+      "nordpool_predict_fi__custom_window_lookahead_hours": {
+        "name": "Custom Window Lookahead Hours"
       }
     }
   }

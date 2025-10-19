@@ -98,6 +98,9 @@
       },
       "nordpool_predict_fi__custom_window_end_hour": {
         "name": "Anpassat fönster sluttimme"
+      },
+      "nordpool_predict_fi__custom_window_lookahead_hours": {
+        "name": "Anpassat fönster framåttimmar"
       }
     }
   }

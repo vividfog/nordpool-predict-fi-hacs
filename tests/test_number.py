@@ -11,11 +11,14 @@ from custom_components.nordpool_predict_fi.const import (
     DEFAULT_CUSTOM_WINDOW_END_HOUR,
     DEFAULT_CUSTOM_WINDOW_HOURS,
     DEFAULT_CUSTOM_WINDOW_START_HOUR,
+    DEFAULT_CUSTOM_WINDOW_LOOKAHEAD_HOURS,
     MAX_CUSTOM_WINDOW_HOUR,
     MAX_CUSTOM_WINDOW_HOURS,
+    MAX_CUSTOM_WINDOW_LOOKAHEAD_HOURS,
     MAX_EXTRA_FEES_CENTS,
     MIN_CUSTOM_WINDOW_HOUR,
     MIN_CUSTOM_WINDOW_HOURS,
+    MIN_CUSTOM_WINDOW_LOOKAHEAD_HOURS,
     MIN_EXTRA_FEES_CENTS,
 )
 from custom_components.nordpool_predict_fi.coordinator import NordpoolPredictCoordinator
@@ -50,7 +53,7 @@ async def test_extra_fees_number_updates_coordinator(hass, enable_custom_integra
 
     await number.async_setup_entry(hass, entry, _add_entities)
 
-    assert len(added) == 4
+    assert len(added) == 5
 
     for index, entity in enumerate(added, start=1):
         entity.hass = hass
@@ -66,6 +69,11 @@ async def test_extra_fees_number_updates_coordinator(hass, enable_custom_integra
     )
     end_number = next(
         entity for entity in added if isinstance(entity, number.NordpoolCustomWindowEndHourNumber)
+    )
+    lookahead_number = next(
+        entity
+        for entity in added
+        if isinstance(entity, number.NordpoolCustomWindowLookaheadHoursNumber)
     )
 
     assert extra.native_value == pytest.approx(0.0)
@@ -114,3 +122,18 @@ async def test_extra_fees_number_updates_coordinator(hass, enable_custom_integra
     await end_number.async_set_native_value(MIN_CUSTOM_WINDOW_HOUR - 3)
     assert end_number.native_value == MIN_CUSTOM_WINDOW_HOUR
     assert coordinator.custom_window_end_hour == MIN_CUSTOM_WINDOW_HOUR
+
+    assert lookahead_number.native_value == DEFAULT_CUSTOM_WINDOW_LOOKAHEAD_HOURS
+    assert coordinator.custom_window_lookahead_hours == DEFAULT_CUSTOM_WINDOW_LOOKAHEAD_HOURS
+    assert (
+        lookahead_number.extra_state_attributes["custom_window_lookahead_hours"]
+        == DEFAULT_CUSTOM_WINDOW_LOOKAHEAD_HOURS
+    )
+
+    await lookahead_number.async_set_native_value(MAX_CUSTOM_WINDOW_LOOKAHEAD_HOURS + 10)
+    assert lookahead_number.native_value == MAX_CUSTOM_WINDOW_LOOKAHEAD_HOURS
+    assert coordinator.custom_window_lookahead_hours == MAX_CUSTOM_WINDOW_LOOKAHEAD_HOURS
+
+    await lookahead_number.async_set_native_value(MIN_CUSTOM_WINDOW_LOOKAHEAD_HOURS - 5)
+    assert lookahead_number.native_value == MIN_CUSTOM_WINDOW_LOOKAHEAD_HOURS
+    assert coordinator.custom_window_lookahead_hours == MIN_CUSTOM_WINDOW_LOOKAHEAD_HOURS

@@ -149,6 +149,8 @@ async def test_coordinator_parses_series(hass, enable_custom_integrations, monke
     assert custom_section["hours"] == DEFAULT_CUSTOM_WINDOW_HOURS
     assert custom_section["start_hour"] == DEFAULT_CUSTOM_WINDOW_START_HOUR
     assert custom_section["end_hour"] == DEFAULT_CUSTOM_WINDOW_END_HOUR
+    assert custom_section["lookahead_hours"] == coordinator.custom_window_lookahead_hours
+    assert custom_section["lookahead_limit"] == coordinator._custom_window_lookahead_limit(now)
     custom_window = custom_section["window"]
     assert isinstance(custom_window, PriceWindow)
     assert custom_window.duration_hours == DEFAULT_CUSTOM_WINDOW_HOURS
@@ -445,6 +447,8 @@ async def test_custom_window_respects_hour_mask(hass, enable_custom_integrations
     now = base + timedelta(hours=10)
     helsinki_tz = coordinator._get_helsinki_timezone()
     custom_entry = coordinator._build_custom_window_entry(series, now, helsinki_tz)
+    assert custom_entry["lookahead_hours"] == coordinator.custom_window_lookahead_hours
+    assert custom_entry["lookahead_limit"] == coordinator._custom_window_lookahead_limit(now)
     coordinator.async_set_updated_data(
         {
             "price": {
@@ -464,21 +468,60 @@ async def test_custom_window_respects_hour_mask(hass, enable_custom_integrations
     initial = coordinator.data["price"][CUSTOM_WINDOW_KEY]
     assert isinstance(initial["window"], PriceWindow)
     assert initial["window"].duration_hours == DEFAULT_CUSTOM_WINDOW_HOURS
+    assert initial["lookahead_hours"] == coordinator.custom_window_lookahead_hours
+    assert initial["lookahead_limit"] == coordinator._custom_window_lookahead_limit(now)
 
     coordinator.set_custom_window_start_hour(12)
     coordinator.set_custom_window_end_hour(14)
     narrowed = coordinator.data["price"][CUSTOM_WINDOW_KEY]
     assert narrowed["window"] is None
     assert narrowed["hours"] == DEFAULT_CUSTOM_WINDOW_HOURS
+    assert narrowed["lookahead_hours"] == coordinator.custom_window_lookahead_hours
+    assert narrowed["lookahead_limit"] == coordinator._custom_window_lookahead_limit(now)
 
     coordinator.set_custom_window_hours(2)
     updated = coordinator.data["price"][CUSTOM_WINDOW_KEY]
     assert updated["hours"] == 2
     assert isinstance(updated["window"], PriceWindow)
     assert updated["window"].duration_hours == 2
+    assert updated["lookahead_hours"] == coordinator.custom_window_lookahead_hours
+    assert updated["lookahead_limit"] == coordinator._custom_window_lookahead_limit(now)
     for point in updated["window"].points:
         local_hour = point.datetime.astimezone(helsinki_tz).hour
         assert 12 <= local_hour <= 14
+
+
+@pytest.mark.asyncio
+async def test_custom_window_respects_lookahead_limit(hass, enable_custom_integrations) -> None:
+    coordinator = _coordinator(hass)
+    base = datetime(2024, 1, 1, 0, 0, tzinfo=timezone.utc)
+    series: list[SeriesPoint] = []
+    for offset in range(48):
+        if offset < 12:
+            value = 50.0
+        elif offset < 20:
+            value = 80.0
+        else:
+            value = 5.0
+        series.append(SeriesPoint(datetime=base + timedelta(hours=offset), value=value))
+
+    now = base
+    helsinki_tz = coordinator._get_helsinki_timezone()
+    coordinator.set_custom_window_hours(4)
+    coordinator.set_custom_window_lookahead_hours(12)
+
+    limited_entry = coordinator._build_custom_window_entry(series, now, helsinki_tz)
+    limited_window = limited_entry["window"]
+    assert isinstance(limited_window, PriceWindow)
+    assert limited_window.start == base
+    assert limited_window.end == base + timedelta(hours=4)
+
+    coordinator.set_custom_window_lookahead_hours(48)
+    expanded_entry = coordinator._build_custom_window_entry(series, now, helsinki_tz)
+    expanded_window = expanded_entry["window"]
+    assert isinstance(expanded_window, PriceWindow)
+    assert expanded_window.start == base + timedelta(hours=20)
+    assert expanded_window.end == base + timedelta(hours=24)
 
 
 def _coordinator(hass) -> NordpoolPredictCoordinator:

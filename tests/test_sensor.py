@@ -10,7 +10,11 @@ from custom_components.nordpool_predict_fi import sensor
 from custom_components.nordpool_predict_fi.const import (
     ATTR_CUSTOM_WINDOW_END_HOUR,
     ATTR_CUSTOM_WINDOW_HOURS,
+    ATTR_CUSTOM_WINDOW_LOOKAHEAD_HOURS,
+    ATTR_CUSTOM_WINDOW_LOOKAHEAD_LIMIT,
     ATTR_CUSTOM_WINDOW_START_HOUR,
+    ATTR_DAILY_AVERAGE_SPAN_END,
+    ATTR_DAILY_AVERAGE_SPAN_START,
     ATTR_DAILY_AVERAGES,
     ATTR_FORECAST,
     ATTR_FORECAST_START,
@@ -117,23 +121,28 @@ async def test_async_setup_entry_registers_entities(hass, enable_custom_integrat
 
     custom_hours = 4
     earliest_start_custom = now - timedelta(hours=custom_hours - 1)
+    lookahead_limit = coordinator._custom_window_lookahead_limit(now)
     custom_window = coordinator._find_cheapest_window(
         merged_price_series,
         custom_hours,
         earliest_start=earliest_start_custom,
         min_end=now,
+        max_end=lookahead_limit,
     )
     if custom_window is None:
         custom_window = coordinator._find_cheapest_window(
             merged_price_series,
             custom_hours,
             earliest_start=earliest_start_custom,
+            max_end=lookahead_limit,
         )
     custom_window_entry = {
         "window": custom_window,
         "hours": custom_hours,
         "start_hour": 0,
         "end_hour": 23,
+        "lookahead_hours": coordinator.custom_window_lookahead_hours,
+        "lookahead_limit": lookahead_limit,
     }
 
     coordinator.async_set_updated_data(
@@ -459,23 +468,28 @@ async def test_price_entities_apply_extra_fees(hass, enable_custom_integrations)
 
     custom_hours = 4
     earliest_start_custom = now - timedelta(hours=custom_hours - 1)
+    lookahead_limit = coordinator._custom_window_lookahead_limit(now)
     custom_window = coordinator._find_cheapest_window(
         merged_price_series,
         custom_hours,
         earliest_start=earliest_start_custom,
         min_end=now,
+        max_end=lookahead_limit,
     )
     if custom_window is None:
         custom_window = coordinator._find_cheapest_window(
             merged_price_series,
             custom_hours,
             earliest_start=earliest_start_custom,
+            max_end=lookahead_limit,
         )
     custom_window_entry = {
         "window": custom_window,
         "hours": custom_hours,
         "start_hour": 0,
         "end_hour": 23,
+        "lookahead_hours": coordinator.custom_window_lookahead_hours,
+        "lookahead_limit": lookahead_limit,
     }
 
     coordinator.async_set_updated_data(
@@ -536,6 +550,8 @@ async def test_price_entities_apply_extra_fees(hass, enable_custom_integrations)
     assert first_entry["points"][0]["value"] == pytest.approx(
         round(daily_average.points[0].value + extra_fee, 1)
     )
+    assert daily_attrs[ATTR_DAILY_AVERAGE_SPAN_START] == daily_average.start.isoformat()
+    assert daily_attrs[ATTR_DAILY_AVERAGE_SPAN_END] == daily_average.end.isoformat()
 
     future_values = values[1:]
     next_entities = [entity for entity in added if isinstance(entity, sensor.NordpoolPriceNextHoursSensor)]
@@ -593,6 +609,19 @@ async def test_price_entities_apply_extra_fees(hass, enable_custom_integrations)
     assert custom_attrs[ATTR_CUSTOM_WINDOW_HOURS] == custom_hours
     assert custom_attrs[ATTR_CUSTOM_WINDOW_START_HOUR] == 0
     assert custom_attrs[ATTR_CUSTOM_WINDOW_END_HOUR] == 23
+    assert (
+        custom_attrs[ATTR_CUSTOM_WINDOW_LOOKAHEAD_HOURS]
+        == coordinator.custom_window_lookahead_hours
+    )
+    assert (
+        custom_attrs[ATTR_CUSTOM_WINDOW_LOOKAHEAD_LIMIT]
+        == lookahead_limit.isoformat()
+    )
+    assert (
+        custom_attrs[ATTR_CUSTOM_WINDOW_LOOKAHEAD_HOURS]
+        == coordinator.custom_window_lookahead_hours
+    )
+    assert custom_attrs[ATTR_CUSTOM_WINDOW_LOOKAHEAD_LIMIT] == lookahead_limit.isoformat()
     if custom_window:
         expected_value = round(custom_window.average + extra_fee, 1)
         assert custom_sensor.native_value == pytest.approx(expected_value)
@@ -609,6 +638,115 @@ async def test_price_entities_apply_extra_fees(hass, enable_custom_integrations)
     assert custom_active.native_value is expected_custom_active
     assert custom_active_attrs[ATTR_EXTRA_FEES] == pytest.approx(extra_fee)
     assert custom_active_attrs[ATTR_CUSTOM_WINDOW_HOURS] == custom_hours
+    assert (
+        custom_active_attrs[ATTR_CUSTOM_WINDOW_LOOKAHEAD_HOURS]
+        == coordinator.custom_window_lookahead_hours
+    )
+    assert (
+        custom_active_attrs[ATTR_CUSTOM_WINDOW_LOOKAHEAD_LIMIT]
+        == lookahead_limit.isoformat()
+    )
+    assert (
+        custom_active_attrs[ATTR_CUSTOM_WINDOW_LOOKAHEAD_HOURS]
+        == coordinator.custom_window_lookahead_hours
+    )
+    assert (
+        custom_active_attrs[ATTR_CUSTOM_WINDOW_LOOKAHEAD_LIMIT]
+        == lookahead_limit.isoformat()
+    )
+
+
+@pytest.mark.asyncio
+async def test_daily_average_sensor_aggregates_full_span(hass, enable_custom_integrations) -> None:
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        unique_id=DOMAIN,
+        title="Nordpool Predict FI",
+        data={},
+    )
+    entry.add_to_hass(hass)
+
+    coordinator = NordpoolPredictCoordinator(
+        hass=hass,
+        entry_id=entry.entry_id,
+        base_url="https://example.com/deploy",
+        update_interval=timedelta(minutes=15),
+    )
+
+    now = datetime(2024, 1, 2, 6, 0, tzinfo=timezone.utc)
+    day1_start = datetime(2024, 1, 1, 0, 0, tzinfo=timezone.utc)
+    day2_start = datetime(2024, 1, 2, 0, 0, tzinfo=timezone.utc)
+    day1_points = [
+        SeriesPoint(datetime=day1_start + timedelta(hours=offset), value=value)
+        for offset, value in enumerate((10.0, 20.0, 30.0, 40.0))
+    ]
+    day2_points = [
+        SeriesPoint(datetime=day2_start + timedelta(hours=offset), value=value)
+        for offset, value in enumerate((15.0, 25.0, 35.0, 45.0))
+    ]
+    day1_average = sum(point.value for point in day1_points) / len(day1_points)
+    day2_average = sum(point.value for point in day2_points) / len(day2_points)
+    day1 = DailyAverage(
+        date=day1_start.date(),
+        start=day1_start,
+        end=day1_start + timedelta(days=1),
+        average=day1_average,
+        points=day1_points,
+    )
+    day2 = DailyAverage(
+        date=day2_start.date(),
+        start=day2_start,
+        end=day2_start + timedelta(days=1),
+        average=day2_average,
+        points=day2_points,
+    )
+
+    coordinator.async_set_updated_data(
+        {
+            "price": {
+                "forecast": [*day1_points, *day2_points],
+                "current": None,
+                "cheapest_windows": {},
+                CUSTOM_WINDOW_KEY: {
+                    "window": None,
+                    "hours": coordinator.custom_window_hours,
+                    "start_hour": coordinator.custom_window_start_hour,
+                    "end_hour": coordinator.custom_window_end_hour,
+                    "lookahead_hours": coordinator.custom_window_lookahead_hours,
+                    "lookahead_limit": coordinator._custom_window_lookahead_limit(now),
+                },
+                "forecast_start": day1_points[0].datetime,
+                "now": now,
+                "daily_averages": [day1, day2],
+            },
+            "windpower": None,
+            "narration": {},
+        }
+    )
+
+    coordinator.set_extra_fees_cents(1.5)
+
+    hass.data.setdefault(DOMAIN, {})
+    hass.data[DOMAIN][entry.entry_id] = {DATA_COORDINATOR: coordinator}
+
+    added: list[sensor.NordpoolBaseSensor] = []
+
+    def _add_entities(new_entities: list[Any], update_before_add: bool = False) -> None:
+        added.extend(new_entities)
+
+    await sensor.async_setup_entry(hass, entry, _add_entities)
+
+    daily_sensor = next(
+        entity for entity in added if isinstance(entity, sensor.NordpoolPriceDailyAverageSensor)
+    )
+    daily_attrs = daily_sensor.extra_state_attributes
+
+    all_points = [*day1_points, *day2_points]
+    expected_average = sum(point.value for point in all_points) / len(all_points)
+    expected_with_fee = round(expected_average + 1.5, 1)
+    assert daily_sensor.native_value == pytest.approx(expected_with_fee)
+    assert daily_attrs[ATTR_DAILY_AVERAGE_SPAN_START] == day1.start.isoformat()
+    assert daily_attrs[ATTR_DAILY_AVERAGE_SPAN_END] == day2.end.isoformat()
 
 
 @pytest.mark.asyncio
@@ -647,6 +785,8 @@ async def test_async_setup_entry_handles_missing_wind_data(hass, enable_custom_i
                     "hours": 4,
                     "start_hour": 0,
                     "end_hour": 23,
+                    "lookahead_hours": coordinator.custom_window_lookahead_hours,
+                    "lookahead_limit": coordinator._custom_window_lookahead_limit(now),
                 },
                 "now": now,
             },
@@ -708,6 +848,8 @@ async def test_async_setup_entry_handles_missing_wind_data(hass, enable_custom_i
     assert daily_sensor.native_value is None
     assert daily_attrs[ATTR_DAILY_AVERAGES] == []
     assert daily_attrs[ATTR_EXTRA_FEES] == pytest.approx(0.0)
+    assert daily_attrs[ATTR_DAILY_AVERAGE_SPAN_START] is None
+    assert daily_attrs[ATTR_DAILY_AVERAGE_SPAN_END] is None
 
     next_price_entities = [
         entity for entity in added if isinstance(entity, sensor.NordpoolPriceNextHoursSensor)
@@ -779,6 +921,14 @@ async def test_async_setup_entry_handles_missing_wind_data(hass, enable_custom_i
     assert custom_attrs[ATTR_CUSTOM_WINDOW_HOURS] == 4
     assert custom_attrs[ATTR_CUSTOM_WINDOW_START_HOUR] == 0
     assert custom_attrs[ATTR_CUSTOM_WINDOW_END_HOUR] == 23
+    assert (
+        custom_attrs[ATTR_CUSTOM_WINDOW_LOOKAHEAD_HOURS]
+        == coordinator.custom_window_lookahead_hours
+    )
+    assert (
+        custom_attrs[ATTR_CUSTOM_WINDOW_LOOKAHEAD_LIMIT]
+        == coordinator._custom_window_lookahead_limit(now).isoformat()
+    )
     assert custom_attrs[ATTR_WINDOW_POINTS] == []
     assert custom_attrs[ATTR_EXTRA_FEES] == pytest.approx(0.0)
 
@@ -790,6 +940,14 @@ async def test_async_setup_entry_handles_missing_wind_data(hass, enable_custom_i
     assert custom_active_attrs[ATTR_CUSTOM_WINDOW_HOURS] == 4
     assert custom_active_attrs[ATTR_CUSTOM_WINDOW_START_HOUR] == 0
     assert custom_active_attrs[ATTR_CUSTOM_WINDOW_END_HOUR] == 23
+    assert (
+        custom_active_attrs[ATTR_CUSTOM_WINDOW_LOOKAHEAD_HOURS]
+        == coordinator.custom_window_lookahead_hours
+    )
+    assert (
+        custom_active_attrs[ATTR_CUSTOM_WINDOW_LOOKAHEAD_LIMIT]
+        == coordinator._custom_window_lookahead_limit(now).isoformat()
+    )
     assert custom_active_attrs[ATTR_WINDOW_POINTS] == []
     assert custom_active_attrs[ATTR_EXTRA_FEES] == pytest.approx(0.0)
 
