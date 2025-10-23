@@ -5,7 +5,7 @@ All notable changes to this project are documented here. This project follows th
 ## 2025-10-23
 ### Changed
 - Shared cheapest window start/end hours now limit only the starting hour, so longer 6 h and 12 h windows remain available while still honoring the configured mask.
-- Custom cheapest window uses the same start-hour-only mask, keeping behaviour consistent with the fixed windows while still honouring wraparound masks.
+- Custom cheapest window follows the same start-hour-only mask behaviour as the fixed windows; wraparound spans continue to work identically.
 - Coordinator refresh metadata includes the shared start/end hours immediately, keeping sensor attributes accurate after each update cycle.
 - Fixed cheapest windows now respect the shared start/end hour mask and surface those hours as sensor attributes.
 - Number entities for the shared cheapest window start and end hours applied across the 3/6/12-hour sensors.
