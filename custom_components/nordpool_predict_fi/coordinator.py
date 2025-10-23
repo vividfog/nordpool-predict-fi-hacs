@@ -22,6 +22,8 @@ from .const import (
     CONF_UPDATE_INTERVAL,
     CUSTOM_WINDOW_KEY,
     DEFAULT_CHEAPEST_WINDOW_LOOKAHEAD_HOURS,
+    DEFAULT_CHEAPEST_WINDOW_END_HOUR,
+    DEFAULT_CHEAPEST_WINDOW_START_HOUR,
     DEFAULT_CUSTOM_WINDOW_LOOKAHEAD_HOURS,
     DEFAULT_CUSTOM_WINDOW_END_HOUR,
     DEFAULT_CUSTOM_WINDOW_HOURS,
@@ -29,10 +31,12 @@ from .const import (
     DEFAULT_BASE_URL,
     DEFAULT_EXTRA_FEES_CENTS,
     MAX_CHEAPEST_WINDOW_LOOKAHEAD_HOURS,
+    MAX_CHEAPEST_WINDOW_HOUR,
     MAX_CUSTOM_WINDOW_LOOKAHEAD_HOURS,
     MAX_CUSTOM_WINDOW_HOURS,
     MAX_CUSTOM_WINDOW_HOUR,
     MIN_CHEAPEST_WINDOW_LOOKAHEAD_HOURS,
+    MIN_CHEAPEST_WINDOW_HOUR,
     MIN_CUSTOM_WINDOW_LOOKAHEAD_HOURS,
     MIN_CUSTOM_WINDOW_HOURS,
     MIN_CUSTOM_WINDOW_HOUR,
@@ -100,6 +104,8 @@ class NordpoolPredictCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             else DEFAULT_EXTRA_FEES_CENTS
         )
         self._cheapest_window_lookahead_hours = DEFAULT_CHEAPEST_WINDOW_LOOKAHEAD_HOURS
+        self._cheapest_window_start_hour = DEFAULT_CHEAPEST_WINDOW_START_HOUR
+        self._cheapest_window_end_hour = DEFAULT_CHEAPEST_WINDOW_END_HOUR
         self._custom_window_hours = DEFAULT_CUSTOM_WINDOW_HOURS
         self._custom_window_start_hour = DEFAULT_CUSTOM_WINDOW_START_HOUR
         self._custom_window_end_hour = DEFAULT_CUSTOM_WINDOW_END_HOUR
@@ -135,6 +141,38 @@ class NordpoolPredictCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         self._rebuild_cheapest_windows_from_cached_data()
 
     @property
+    def cheapest_window_start_hour(self) -> int:
+        return self._cheapest_window_start_hour
+
+    def set_cheapest_window_start_hour(self, value: int) -> None:
+        normalized = self._normalize_hour(
+            value,
+            DEFAULT_CHEAPEST_WINDOW_START_HOUR,
+            MIN_CHEAPEST_WINDOW_HOUR,
+            MAX_CHEAPEST_WINDOW_HOUR,
+        )
+        if normalized == self._cheapest_window_start_hour:
+            return
+        self._cheapest_window_start_hour = normalized
+        self._rebuild_cheapest_windows_from_cached_data()
+
+    @property
+    def cheapest_window_end_hour(self) -> int:
+        return self._cheapest_window_end_hour
+
+    def set_cheapest_window_end_hour(self, value: int) -> None:
+        normalized = self._normalize_hour(
+            value,
+            DEFAULT_CHEAPEST_WINDOW_END_HOUR,
+            MIN_CHEAPEST_WINDOW_HOUR,
+            MAX_CHEAPEST_WINDOW_HOUR,
+        )
+        if normalized == self._cheapest_window_end_hour:
+            return
+        self._cheapest_window_end_hour = normalized
+        self._rebuild_cheapest_windows_from_cached_data()
+
+    @property
     def custom_window_hours(self) -> int:
         return self._custom_window_hours
 
@@ -150,7 +188,12 @@ class NordpoolPredictCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         return self._custom_window_start_hour
 
     def set_custom_window_start_hour(self, value: int) -> None:
-        normalized = self._normalize_custom_window_hour(value)
+        normalized = self._normalize_hour(
+            value,
+            DEFAULT_CUSTOM_WINDOW_START_HOUR,
+            MIN_CUSTOM_WINDOW_HOUR,
+            MAX_CUSTOM_WINDOW_HOUR,
+        )
         if normalized == self._custom_window_start_hour:
             return
         self._custom_window_start_hour = normalized
@@ -161,7 +204,12 @@ class NordpoolPredictCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         return self._custom_window_end_hour
 
     def set_custom_window_end_hour(self, value: int) -> None:
-        normalized = self._normalize_custom_window_hour(value)
+        normalized = self._normalize_hour(
+            value,
+            DEFAULT_CUSTOM_WINDOW_END_HOUR,
+            MIN_CUSTOM_WINDOW_HOUR,
+            MAX_CUSTOM_WINDOW_HOUR,
+        )
         if normalized == self._custom_window_end_hour:
             return
         self._custom_window_end_hour = normalized
@@ -252,6 +300,11 @@ class NordpoolPredictCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         # Calculate cheapest windows using windows that may already be in progress
         cheapest_windows: dict[int, PriceWindow | None] = {}
         cheapest_window_lookahead_limit = self._cheapest_window_lookahead_limit(now)
+        mask_hours = self._mask_hours(
+            self._cheapest_window_start_hour,
+            self._cheapest_window_end_hour,
+        )
+        window_filter = self._build_start_hour_filter(mask_hours, helsinki_tz)
         for hours in CHEAPEST_WINDOW_HOURS:
             earliest_start = current_hour_anchor - timedelta(hours=hours - 1)
             window = self._find_cheapest_window(
@@ -260,6 +313,7 @@ class NordpoolPredictCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 earliest_start=earliest_start,
                 min_end=now,
                 max_end=cheapest_window_lookahead_limit,
+                window_filter=window_filter,
             )
             if window is None:
                 window = self._find_cheapest_window(
@@ -267,6 +321,7 @@ class NordpoolPredictCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                     hours,
                     earliest_start=earliest_start,
                     max_end=cheapest_window_lookahead_limit,
+                    window_filter=window_filter,
                 )
             cheapest_windows[hours] = window
 
@@ -284,6 +339,8 @@ class NordpoolPredictCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 "cheapest_windows_meta": {
                     "lookahead_hours": self._cheapest_window_lookahead_hours,
                     "lookahead_limit": cheapest_window_lookahead_limit,
+                    "start_hour": self._cheapest_window_start_hour,
+                    "end_hour": self._cheapest_window_end_hour,
                 },
                 "now": now,
                 "forecast_start": price_forecast_start,
@@ -535,9 +592,17 @@ class NordpoolPredictCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             price_section["cheapest_windows_meta"] = {
                 "lookahead_hours": self._cheapest_window_lookahead_hours,
                 "lookahead_limit": self._cheapest_window_lookahead_limit(now),
+                "start_hour": self._cheapest_window_start_hour,
+                "end_hour": self._cheapest_window_end_hour,
             }
             self.async_update_listeners()
             return
+        helsinki_tz = self._get_helsinki_timezone()
+        mask_hours = self._mask_hours(
+            self._cheapest_window_start_hour,
+            self._cheapest_window_end_hour,
+        )
+        window_filter = self._build_start_hour_filter(mask_hours, helsinki_tz)
         current_hour_anchor = now.replace(minute=0, second=0, microsecond=0)
         lookahead_limit = self._cheapest_window_lookahead_limit(now)
         rebuilt: dict[int, PriceWindow | None] = {}
@@ -549,6 +614,7 @@ class NordpoolPredictCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 earliest_start=earliest_start,
                 min_end=now,
                 max_end=lookahead_limit,
+                window_filter=window_filter,
             )
             if window is None:
                 window = self._find_cheapest_window(
@@ -556,12 +622,15 @@ class NordpoolPredictCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                     hours,
                     earliest_start=earliest_start,
                     max_end=lookahead_limit,
+                    window_filter=window_filter,
                 )
             rebuilt[hours] = window
         price_section["cheapest_windows"] = rebuilt
         price_section["cheapest_windows_meta"] = {
             "lookahead_hours": self._cheapest_window_lookahead_hours,
             "lookahead_limit": lookahead_limit,
+            "start_hour": self._cheapest_window_start_hour,
+            "end_hour": self._cheapest_window_end_hour,
         }
         self.async_update_listeners()
 
@@ -591,15 +660,14 @@ class NordpoolPredictCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         if hours <= 0:
             return None
         mask_hours = self._mask_hours(self._custom_window_start_hour, self._custom_window_end_hour)
-        if not mask_hours or hours > len(mask_hours):
+        if not mask_hours:
             return None
-        mask_set = set(mask_hours)
+        window_filter = self._build_start_hour_filter(mask_hours, helsinki_tz)
+        if window_filter is None:
+            return None
         current_hour_anchor = now.replace(minute=0, second=0, microsecond=0)
         earliest_start = current_hour_anchor - timedelta(hours=hours - 1)
         lookahead_limit = self._custom_window_lookahead_limit(now)
-
-        def _filter(window_points: list[SeriesPoint]) -> bool:
-            return self._window_within_mask(window_points, helsinki_tz, mask_set)
 
         window = self._find_cheapest_window(
             series,
@@ -607,7 +675,7 @@ class NordpoolPredictCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             earliest_start=earliest_start,
             min_end=now,
             max_end=lookahead_limit,
-            window_filter=_filter,
+            window_filter=window_filter,
         )
         if window is None:
             window = self._find_cheapest_window(
@@ -615,13 +683,37 @@ class NordpoolPredictCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 hours,
                 earliest_start=earliest_start,
                 max_end=lookahead_limit,
-                window_filter=_filter,
+                window_filter=window_filter,
             )
         return window
 
+    def _build_start_hour_filter(
+        self,
+        mask_hours: list[int],
+        helsinki_tz: tzinfo,
+    ) -> Callable[[list[SeriesPoint]], bool] | None:
+        mask_set = set(mask_hours)
+        if not mask_set:
+            return None
+
+        def _filter(window_points: list[SeriesPoint]) -> bool:
+            return self._window_start_within_mask(window_points, helsinki_tz, mask_set)
+
+        return _filter
+
     def _mask_hours(self, start_hour: int, end_hour: int) -> list[int]:
-        start = self._normalize_custom_window_hour(start_hour)
-        end = self._normalize_custom_window_hour(end_hour)
+        start = self._normalize_hour(
+            start_hour,
+            DEFAULT_CUSTOM_WINDOW_START_HOUR,
+            MIN_CUSTOM_WINDOW_HOUR,
+            MAX_CUSTOM_WINDOW_HOUR,
+        )
+        end = self._normalize_hour(
+            end_hour,
+            DEFAULT_CUSTOM_WINDOW_END_HOUR,
+            MIN_CUSTOM_WINDOW_HOUR,
+            MAX_CUSTOM_WINDOW_HOUR,
+        )
         if start <= end:
             return list(range(start, end + 1))
         forward = list(range(start, 24))
@@ -629,16 +721,28 @@ class NordpoolPredictCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         return [*forward, *backward]
 
     @staticmethod
-    def _window_within_mask(
+    def _window_start_within_mask(
         window_points: list[SeriesPoint],
         helsinki_tz: tzinfo,
         mask_hours: set[int],
     ) -> bool:
-        for point in window_points:
-            local_hour = point.datetime.astimezone(helsinki_tz).hour
-            if local_hour not in mask_hours:
-                return False
-        return True
+        if not window_points:
+            return False
+        start_hour = window_points[0].datetime.astimezone(helsinki_tz).hour
+        return start_hour in mask_hours
+
+    def _normalize_hour(
+        self,
+        value: int | float | None,
+        default: int,
+        minimum: int,
+        maximum: int,
+    ) -> int:
+        try:
+            coerced = int(round(float(value)))
+        except (TypeError, ValueError):
+            coerced = default
+        return max(minimum, min(maximum, coerced))
 
     def _normalize_custom_window_hours(self, value: int | float | None) -> int:
         try:
@@ -646,14 +750,6 @@ class NordpoolPredictCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         except (TypeError, ValueError):
             coerced = DEFAULT_CUSTOM_WINDOW_HOURS
         bounded = max(MIN_CUSTOM_WINDOW_HOURS, min(MAX_CUSTOM_WINDOW_HOURS, coerced))
-        return bounded
-
-    def _normalize_custom_window_hour(self, value: int | float | None) -> int:
-        try:
-            coerced = int(round(float(value)))
-        except (TypeError, ValueError):
-            coerced = DEFAULT_CUSTOM_WINDOW_START_HOUR
-        bounded = max(MIN_CUSTOM_WINDOW_HOUR, min(MAX_CUSTOM_WINDOW_HOUR, coerced))
         return bounded
 
     def _normalize_custom_window_lookahead_hours(self, value: int | float | None) -> int:

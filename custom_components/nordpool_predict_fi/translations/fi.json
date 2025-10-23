@@ -100,13 +100,19 @@
         "name": "Oman jakson aloitustunti"
       },
       "nordpool_predict_fi__custom_window_end_hour": {
-        "name": "Oman jakson lopputunti"
+        "name": "Oman jakson viimeinen tunti"
       },
       "nordpool_predict_fi__custom_window_lookahead_hours": {
         "name": "Oman jakson ennakkotunnit"
       },
       "nordpool_predict_fi__cheapest_window_lookahead_hours": {
         "name": "Halvimman jakson ennakkotunnit"
+      },
+      "nordpool_predict_fi__cheapest_window_start_hour": {
+        "name": "Halvimman jakson aloitustunti"
+      },
+      "nordpool_predict_fi__cheapest_window_end_hour": {
+        "name": "Halvimman jakson viimeinen tunti"
       }
     }
   }

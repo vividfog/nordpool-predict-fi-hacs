@@ -30,6 +30,8 @@ from custom_components.nordpool_predict_fi.const import (
     ATTR_WINDOW_DURATION,
     ATTR_WINDOW_LOOKAHEAD_HOURS,
     ATTR_WINDOW_LOOKAHEAD_LIMIT,
+    ATTR_CHEAPEST_WINDOW_START_HOUR,
+    ATTR_CHEAPEST_WINDOW_END_HOUR,
     ATTR_WINDOW_END,
     ATTR_WINDOW_POINTS,
     ATTR_WINDOW_START,
@@ -159,6 +161,8 @@ async def test_async_setup_entry_registers_entities(hass, enable_custom_integrat
                 "cheapest_windows_meta": {
                     "lookahead_hours": coordinator.cheapest_window_lookahead_hours,
                     "lookahead_limit": cheapest_window_limit,
+                    "start_hour": coordinator.cheapest_window_start_hour,
+                    "end_hour": coordinator.cheapest_window_end_hour,
                 },
                 CUSTOM_WINDOW_KEY: custom_window_entry,
                 "forecast_start": forecast_start,
@@ -323,6 +327,8 @@ async def test_async_setup_entry_registers_entities(hass, enable_custom_integrat
         == coordinator.cheapest_window_lookahead_hours
     )
     assert three_attrs[ATTR_WINDOW_LOOKAHEAD_LIMIT] == cheapest_window_limit.isoformat()
+    assert three_attrs[ATTR_CHEAPEST_WINDOW_START_HOUR] == coordinator.cheapest_window_start_hour
+    assert three_attrs[ATTR_CHEAPEST_WINDOW_END_HOUR] == coordinator.cheapest_window_end_hour
 
     six_hour_sensor = by_duration[6]
     six_attrs = six_hour_sensor.extra_state_attributes
@@ -337,6 +343,8 @@ async def test_async_setup_entry_registers_entities(hass, enable_custom_integrat
         == coordinator.cheapest_window_lookahead_hours
     )
     assert six_attrs[ATTR_WINDOW_LOOKAHEAD_LIMIT] == cheapest_window_limit.isoformat()
+    assert six_attrs[ATTR_CHEAPEST_WINDOW_START_HOUR] == coordinator.cheapest_window_start_hour
+    assert six_attrs[ATTR_CHEAPEST_WINDOW_END_HOUR] == coordinator.cheapest_window_end_hour
 
     twelve_hour_sensor = by_duration[12]
     twelve_attrs = twelve_hour_sensor.extra_state_attributes
@@ -351,6 +359,8 @@ async def test_async_setup_entry_registers_entities(hass, enable_custom_integrat
         == coordinator.cheapest_window_lookahead_hours
     )
     assert twelve_attrs[ATTR_WINDOW_LOOKAHEAD_LIMIT] == cheapest_window_limit.isoformat()
+    assert twelve_attrs[ATTR_CHEAPEST_WINDOW_START_HOUR] == coordinator.cheapest_window_start_hour
+    assert twelve_attrs[ATTR_CHEAPEST_WINDOW_END_HOUR] == coordinator.cheapest_window_end_hour
 
     active_entities = [
         entity for entity in added if isinstance(entity, sensor.NordpoolCheapestWindowActiveSensor)
@@ -381,6 +391,8 @@ async def test_async_setup_entry_registers_entities(hass, enable_custom_integrat
             == coordinator.cheapest_window_lookahead_hours
         )
         assert attrs_active[ATTR_WINDOW_LOOKAHEAD_LIMIT] == cheapest_window_limit.isoformat()
+        assert attrs_active[ATTR_CHEAPEST_WINDOW_START_HOUR] == coordinator.cheapest_window_start_hour
+        assert attrs_active[ATTR_CHEAPEST_WINDOW_END_HOUR] == coordinator.cheapest_window_end_hour
 
     custom_sensor = next(
         entity for entity in added if isinstance(entity, sensor.NordpoolCheapestCustomWindowSensor)
@@ -542,11 +554,13 @@ async def test_price_entities_apply_extra_fees(hass, enable_custom_integrations)
             "price": {
                 "forecast": merged_price_series,
                 "current": current_point,
-            "cheapest_windows": cheapest_windows,
-            "cheapest_windows_meta": {
-                "lookahead_hours": coordinator.cheapest_window_lookahead_hours,
-                "lookahead_limit": cheapest_window_limit,
-            },
+                "cheapest_windows": cheapest_windows,
+                "cheapest_windows_meta": {
+                    "lookahead_hours": coordinator.cheapest_window_lookahead_hours,
+                    "lookahead_limit": cheapest_window_limit,
+                    "start_hour": coordinator.cheapest_window_start_hour,
+                    "end_hour": coordinator.cheapest_window_end_hour,
+                },
                 CUSTOM_WINDOW_KEY: custom_window_entry,
                 "forecast_start": forecast_series[0].datetime,
                 "now": now,
@@ -639,6 +653,10 @@ async def test_price_entities_apply_extra_fees(hass, enable_custom_integrations)
             == coordinator.cheapest_window_lookahead_hours
         )
         assert attrs_window[ATTR_WINDOW_LOOKAHEAD_LIMIT] == cheapest_window_limit_iso
+        assert attrs_window[ATTR_CHEAPEST_WINDOW_START_HOUR] == coordinator.cheapest_window_start_hour
+        assert attrs_window[ATTR_CHEAPEST_WINDOW_END_HOUR] == coordinator.cheapest_window_end_hour
+        assert attrs_window[ATTR_CHEAPEST_WINDOW_START_HOUR] == coordinator.cheapest_window_start_hour
+        assert attrs_window[ATTR_CHEAPEST_WINDOW_END_HOUR] == coordinator.cheapest_window_end_hour
         first_point = attrs_window[ATTR_WINDOW_POINTS][0]
         assert first_point["value"] == pytest.approx(round(window.points[0].value + extra_fee, 1))
 

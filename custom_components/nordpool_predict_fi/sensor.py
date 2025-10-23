@@ -35,6 +35,8 @@ from .const import (
     ATTR_WINDOW_DURATION,
     ATTR_WINDOW_LOOKAHEAD_HOURS,
     ATTR_WINDOW_LOOKAHEAD_LIMIT,
+    ATTR_CHEAPEST_WINDOW_START_HOUR,
+    ATTR_CHEAPEST_WINDOW_END_HOUR,
     ATTR_WINDOW_END,
     ATTR_WINDOW_POINTS,
     ATTR_WINDOW_START,
@@ -444,6 +446,8 @@ class _NordpoolCheapestWindowBaseSensor(NordpoolBaseSensor):
             ATTR_EXTRA_FEES: self._extra_fees_cents(),
             ATTR_WINDOW_LOOKAHEAD_HOURS: self._coerce_int(meta.get("lookahead_hours")),
             ATTR_WINDOW_LOOKAHEAD_LIMIT: self._coerce_datetime_iso(meta.get("lookahead_limit")),
+            ATTR_CHEAPEST_WINDOW_START_HOUR: self._coerce_int(meta.get("start_hour")),
+            ATTR_CHEAPEST_WINDOW_END_HOUR: self._coerce_int(meta.get("end_hour")),
         }
         if window:
             attributes[ATTR_WINDOW_START] = window.start.isoformat()

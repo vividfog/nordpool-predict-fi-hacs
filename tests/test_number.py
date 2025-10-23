@@ -9,16 +9,20 @@ from custom_components.nordpool_predict_fi.const import (
     DATA_COORDINATOR,
     DOMAIN,
     DEFAULT_CHEAPEST_WINDOW_LOOKAHEAD_HOURS,
+    DEFAULT_CHEAPEST_WINDOW_END_HOUR,
+    DEFAULT_CHEAPEST_WINDOW_START_HOUR,
     DEFAULT_CUSTOM_WINDOW_END_HOUR,
     DEFAULT_CUSTOM_WINDOW_HOURS,
     DEFAULT_CUSTOM_WINDOW_START_HOUR,
     DEFAULT_CUSTOM_WINDOW_LOOKAHEAD_HOURS,
     MAX_CHEAPEST_WINDOW_LOOKAHEAD_HOURS,
+    MAX_CHEAPEST_WINDOW_HOUR,
     MAX_CUSTOM_WINDOW_HOUR,
     MAX_CUSTOM_WINDOW_HOURS,
     MAX_CUSTOM_WINDOW_LOOKAHEAD_HOURS,
     MAX_EXTRA_FEES_CENTS,
     MIN_CHEAPEST_WINDOW_LOOKAHEAD_HOURS,
+    MIN_CHEAPEST_WINDOW_HOUR,
     MIN_CUSTOM_WINDOW_HOUR,
     MIN_CUSTOM_WINDOW_HOURS,
     MIN_CUSTOM_WINDOW_LOOKAHEAD_HOURS,
@@ -56,7 +60,7 @@ async def test_extra_fees_number_updates_coordinator(hass, enable_custom_integra
 
     await number.async_setup_entry(hass, entry, _add_entities)
 
-    assert len(added) == 6
+    assert len(added) == 8
 
     for index, entity in enumerate(added, start=1):
         entity.hass = hass
@@ -77,6 +81,16 @@ async def test_extra_fees_number_updates_coordinator(hass, enable_custom_integra
         entity
         for entity in added
         if isinstance(entity, number.NordpoolCheapestWindowLookaheadHoursNumber)
+    )
+    cheapest_start_number = next(
+        entity
+        for entity in added
+        if isinstance(entity, number.NordpoolCheapestWindowStartHourNumber)
+    )
+    cheapest_end_number = next(
+        entity
+        for entity in added
+        if isinstance(entity, number.NordpoolCheapestWindowEndHourNumber)
     )
     lookahead_number = next(
         entity
@@ -130,6 +144,34 @@ async def test_extra_fees_number_updates_coordinator(hass, enable_custom_integra
     await end_number.async_set_native_value(MIN_CUSTOM_WINDOW_HOUR - 3)
     assert end_number.native_value == MIN_CUSTOM_WINDOW_HOUR
     assert coordinator.custom_window_end_hour == MIN_CUSTOM_WINDOW_HOUR
+
+    assert cheapest_start_number.native_value == DEFAULT_CHEAPEST_WINDOW_START_HOUR
+    assert coordinator.cheapest_window_start_hour == DEFAULT_CHEAPEST_WINDOW_START_HOUR
+    assert (
+        cheapest_start_number.extra_state_attributes["cheapest_window_start_hour"]
+        == DEFAULT_CHEAPEST_WINDOW_START_HOUR
+    )
+
+    await cheapest_start_number.async_set_native_value(MAX_CHEAPEST_WINDOW_HOUR + 4)
+    assert cheapest_start_number.native_value == MAX_CHEAPEST_WINDOW_HOUR
+    assert coordinator.cheapest_window_start_hour == MAX_CHEAPEST_WINDOW_HOUR
+    await cheapest_start_number.async_set_native_value(MIN_CHEAPEST_WINDOW_HOUR - 3)
+    assert cheapest_start_number.native_value == MIN_CHEAPEST_WINDOW_HOUR
+    assert coordinator.cheapest_window_start_hour == MIN_CHEAPEST_WINDOW_HOUR
+
+    assert cheapest_end_number.native_value == DEFAULT_CHEAPEST_WINDOW_END_HOUR
+    assert coordinator.cheapest_window_end_hour == DEFAULT_CHEAPEST_WINDOW_END_HOUR
+    assert (
+        cheapest_end_number.extra_state_attributes["cheapest_window_end_hour"]
+        == DEFAULT_CHEAPEST_WINDOW_END_HOUR
+    )
+
+    await cheapest_end_number.async_set_native_value(MAX_CHEAPEST_WINDOW_HOUR + 7)
+    assert cheapest_end_number.native_value == MAX_CHEAPEST_WINDOW_HOUR
+    assert coordinator.cheapest_window_end_hour == MAX_CHEAPEST_WINDOW_HOUR
+    await cheapest_end_number.async_set_native_value(MIN_CHEAPEST_WINDOW_HOUR - 4)
+    assert cheapest_end_number.native_value == MIN_CHEAPEST_WINDOW_HOUR
+    assert coordinator.cheapest_window_end_hour == MIN_CHEAPEST_WINDOW_HOUR
 
     assert (
         global_lookahead_number.native_value

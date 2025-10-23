@@ -10,6 +10,7 @@ from homeassistant.helpers.update_coordinator import UpdateFailed
 from zoneinfo import ZoneInfo
 
 from custom_components.nordpool_predict_fi.const import (
+    CHEAPEST_WINDOW_HOURS,
     CUSTOM_WINDOW_KEY,
     DEFAULT_CUSTOM_WINDOW_END_HOUR,
     DEFAULT_CUSTOM_WINDOW_HOURS,
@@ -126,6 +127,8 @@ async def test_coordinator_parses_series(hass, enable_custom_integrations, monke
     windows_meta = price_section["cheapest_windows_meta"]
     assert windows_meta["lookahead_hours"] == coordinator.cheapest_window_lookahead_hours
     assert windows_meta["lookahead_limit"] == coordinator._cheapest_window_lookahead_limit(now)
+    assert windows_meta["start_hour"] == coordinator.cheapest_window_start_hour
+    assert windows_meta["end_hour"] == coordinator.cheapest_window_end_hour
     window_3h = windows[3]
     assert isinstance(window_3h, PriceWindow)
     assert window_3h.start == datetime(2024, 1, 1, 13, 0, tzinfo=timezone.utc)
@@ -477,10 +480,12 @@ async def test_custom_window_respects_hour_mask(hass, enable_custom_integrations
     coordinator.set_custom_window_start_hour(12)
     coordinator.set_custom_window_end_hour(14)
     narrowed = coordinator.data["price"][CUSTOM_WINDOW_KEY]
-    assert narrowed["window"] is None
+    assert isinstance(narrowed["window"], PriceWindow)
     assert narrowed["hours"] == DEFAULT_CUSTOM_WINDOW_HOURS
     assert narrowed["lookahead_hours"] == coordinator.custom_window_lookahead_hours
     assert narrowed["lookahead_limit"] == coordinator._custom_window_lookahead_limit(now)
+    narrowed_start_hour = narrowed["window"].start.astimezone(helsinki_tz).hour
+    assert 12 <= narrowed_start_hour <= 14
 
     coordinator.set_custom_window_hours(2)
     updated = coordinator.data["price"][CUSTOM_WINDOW_KEY]
@@ -489,9 +494,100 @@ async def test_custom_window_respects_hour_mask(hass, enable_custom_integrations
     assert updated["window"].duration_hours == 2
     assert updated["lookahead_hours"] == coordinator.custom_window_lookahead_hours
     assert updated["lookahead_limit"] == coordinator._custom_window_lookahead_limit(now)
-    for point in updated["window"].points:
-        local_hour = point.datetime.astimezone(helsinki_tz).hour
-        assert 12 <= local_hour <= 14
+    updated_start_hour = updated["window"].start.astimezone(helsinki_tz).hour
+    assert 12 <= updated_start_hour <= 14
+
+
+@pytest.mark.asyncio
+async def test_cheapest_windows_respect_hour_mask_on_refresh(
+    hass,
+    enable_custom_integrations,
+    monkeypatch,
+) -> None:
+    coordinator = _coordinator(hass)
+    base = datetime(2024, 1, 1, 0, 0, tzinfo=timezone.utc)
+    now = base
+    monkeypatch.setattr(coordinator, "_current_time", lambda: now)
+    coordinator.set_cheapest_window_start_hour(14)
+    coordinator.set_cheapest_window_end_hour(21)
+    helsinki_tz = coordinator._get_helsinki_timezone()
+
+    forecast_rows: list[list[float]] = []
+    for offset in range(48):
+        point_time = base + timedelta(hours=offset)
+        local_hour = point_time.astimezone(helsinki_tz).hour
+        value = 100.0 if 14 <= local_hour <= 21 else 0.0
+        forecast_rows.append([point_time.timestamp() * 1000, value])
+
+    async def _mock_fetch_json(self, session, suffix: str):
+        if suffix == "prediction.json":
+            return forecast_rows
+        raise AssertionError(f"Unexpected suffix: {suffix}")
+
+    async def _mock_fetch_sahkotin(self, session, start, end):
+        return []
+
+    async def _mock_fetch_text(self, session, suffix: str):
+        return None
+
+    async def _mock_fetch_artifact(self, session, suffix: str):
+        return None
+
+    monkeypatch.setattr(
+        "custom_components.nordpool_predict_fi.coordinator.async_get_clientsession",
+        lambda hass: object(),
+    )
+    monkeypatch.setattr(NordpoolPredictCoordinator, "_fetch_json", _mock_fetch_json)
+    monkeypatch.setattr(
+        NordpoolPredictCoordinator,
+        "_safe_fetch_sahkotin_series",
+        _mock_fetch_sahkotin,
+    )
+    monkeypatch.setattr(
+        NordpoolPredictCoordinator,
+        "_safe_fetch_artifact_text",
+        _mock_fetch_text,
+    )
+    monkeypatch.setattr(
+        NordpoolPredictCoordinator,
+        "_safe_fetch_artifact",
+        _mock_fetch_artifact,
+    )
+
+    data = await coordinator._async_update_data()
+    coordinator.async_set_updated_data(data)
+
+    price_section = coordinator.data["price"]
+    meta = price_section["cheapest_windows_meta"]
+    assert meta["start_hour"] == 14
+    assert meta["end_hour"] == 21
+    windows = price_section["cheapest_windows"]
+    mask_hours = {14, 15, 16, 17, 18, 19, 20, 21}
+    for hours in CHEAPEST_WINDOW_HOURS:
+        window = windows[hours]
+        assert isinstance(window, PriceWindow)
+        start_hour = window.start.astimezone(helsinki_tz).hour
+        assert start_hour in mask_hours
+        current_hour_anchor = now.replace(minute=0, second=0, microsecond=0)
+        lookahead_limit = coordinator._cheapest_window_lookahead_limit(now)
+        baseline = coordinator._find_cheapest_window(
+            price_section["forecast"],
+            hours,
+            earliest_start=current_hour_anchor - timedelta(hours=hours - 1),
+            min_end=now,
+            max_end=lookahead_limit,
+        )
+        if baseline is None:
+            baseline = coordinator._find_cheapest_window(
+                price_section["forecast"],
+                hours,
+                earliest_start=current_hour_anchor - timedelta(hours=hours - 1),
+                max_end=lookahead_limit,
+            )
+        assert baseline is not None
+        baseline_hour = baseline.start.astimezone(helsinki_tz).hour
+        assert baseline_hour not in mask_hours
+        assert baseline_hour != start_hour
 
 
 @pytest.mark.asyncio
@@ -559,6 +655,8 @@ def test_cheapest_windows_respect_shared_lookahead(hass, enable_custom_integrati
     limit_default = coordinator._cheapest_window_lookahead_limit(now)
     assert meta["lookahead_hours"] == coordinator.cheapest_window_lookahead_hours == 168
     assert meta["lookahead_limit"] == limit_default
+    assert meta["start_hour"] == coordinator.cheapest_window_start_hour
+    assert meta["end_hour"] == coordinator.cheapest_window_end_hour
 
     updates = 0
 
@@ -575,6 +673,8 @@ def test_cheapest_windows_respect_shared_lookahead(hass, enable_custom_integrati
     meta_mid = coordinator.data["price"]["cheapest_windows_meta"]
     assert meta_mid["lookahead_hours"] == 100
     assert meta_mid["lookahead_limit"] == limit_100
+    assert meta_mid["start_hour"] == coordinator.cheapest_window_start_hour
+    assert meta_mid["end_hour"] == coordinator.cheapest_window_end_hour
 
     coordinator.set_cheapest_window_lookahead_hours(200)
     assert coordinator.cheapest_window_lookahead_hours == 168
@@ -583,6 +683,8 @@ def test_cheapest_windows_respect_shared_lookahead(hass, enable_custom_integrati
     meta_post = coordinator.data["price"]["cheapest_windows_meta"]
     assert meta_post["lookahead_hours"] == 168
     assert meta_post["lookahead_limit"] == expected_limit
+    assert meta_post["start_hour"] == coordinator.cheapest_window_start_hour
+    assert meta_post["end_hour"] == coordinator.cheapest_window_end_hour
     rebuilt_windows = coordinator.data["price"]["cheapest_windows"]
     for window in rebuilt_windows.values():
         if window is None:
@@ -596,6 +698,28 @@ def test_cheapest_windows_respect_shared_lookahead(hass, enable_custom_integrati
     assert meta_min["lookahead_hours"] == 1
     min_limit = coordinator._cheapest_window_lookahead_limit(now)
     assert meta_min["lookahead_limit"] == min_limit
+
+    coordinator.set_cheapest_window_start_hour(5)
+    assert coordinator.cheapest_window_start_hour == 5
+    meta_start = coordinator.data["price"]["cheapest_windows_meta"]
+    assert meta_start["start_hour"] == 5
+    assert meta_start["end_hour"] == coordinator.cheapest_window_end_hour
+
+    coordinator.set_cheapest_window_end_hour(30)
+    assert coordinator.cheapest_window_end_hour == 23
+    meta_end = coordinator.data["price"]["cheapest_windows_meta"]
+    assert meta_end["end_hour"] == 23
+
+    coordinator.set_cheapest_window_start_hour(-4)
+    assert coordinator.cheapest_window_start_hour == 0
+    meta_clamped = coordinator.data["price"]["cheapest_windows_meta"]
+    assert meta_clamped["start_hour"] == 0
+
+    coordinator.set_cheapest_window_end_hour(-4)
+    assert coordinator.cheapest_window_end_hour == 0
+    meta_clamped_end = coordinator.data["price"]["cheapest_windows_meta"]
+    assert meta_clamped_end["end_hour"] == 0
+
 
 
 def _coordinator(hass) -> NordpoolPredictCoordinator:

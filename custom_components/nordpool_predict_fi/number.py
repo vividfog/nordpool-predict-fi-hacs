@@ -21,22 +21,28 @@ from .const import (
     ATTR_CUSTOM_WINDOW_START_HOUR,
     ATTR_CUSTOM_WINDOW_END_HOUR,
     ATTR_CUSTOM_WINDOW_LOOKAHEAD_HOURS,
+    ATTR_CHEAPEST_WINDOW_START_HOUR,
+    ATTR_CHEAPEST_WINDOW_END_HOUR,
     ATTR_WINDOW_LOOKAHEAD_HOURS,
     DATA_COORDINATOR,
     DEFAULT_EXTRA_FEES_CENTS,
     DOMAIN,
     EXTRA_FEES_STEP_CENTS,
     DEFAULT_CHEAPEST_WINDOW_LOOKAHEAD_HOURS,
+    DEFAULT_CHEAPEST_WINDOW_START_HOUR,
+    DEFAULT_CHEAPEST_WINDOW_END_HOUR,
     DEFAULT_CUSTOM_WINDOW_HOURS,
     DEFAULT_CUSTOM_WINDOW_START_HOUR,
     DEFAULT_CUSTOM_WINDOW_END_HOUR,
     DEFAULT_CUSTOM_WINDOW_LOOKAHEAD_HOURS,
     MAX_CHEAPEST_WINDOW_LOOKAHEAD_HOURS,
+    MAX_CHEAPEST_WINDOW_HOUR,
     MAX_CUSTOM_WINDOW_HOURS,
     MIN_CUSTOM_WINDOW_HOURS,
     MAX_CUSTOM_WINDOW_HOUR,
     MIN_CUSTOM_WINDOW_HOUR,
     MIN_CHEAPEST_WINDOW_LOOKAHEAD_HOURS,
+    MIN_CHEAPEST_WINDOW_HOUR,
     MAX_CUSTOM_WINDOW_LOOKAHEAD_HOURS,
     MIN_CUSTOM_WINDOW_LOOKAHEAD_HOURS,
     MAX_EXTRA_FEES_CENTS,
@@ -57,6 +63,8 @@ async def async_setup_entry(
         [
             NordpoolExtraFeesNumber(coordinator, entry),
             NordpoolCheapestWindowLookaheadHoursNumber(coordinator, entry),
+            NordpoolCheapestWindowStartHourNumber(coordinator, entry),
+            NordpoolCheapestWindowEndHourNumber(coordinator, entry),
             NordpoolCustomWindowHoursNumber(coordinator, entry),
             NordpoolCustomWindowStartHourNumber(coordinator, entry),
             NordpoolCustomWindowEndHourNumber(coordinator, entry),
@@ -127,7 +135,7 @@ class NordpoolExtraFeesNumber(CoordinatorEntity[NordpoolPredictCoordinator], Res
         return {ATTR_EXTRA_FEES: self._value}
 
 
-class _NordpoolCustomWindowBaseNumber(CoordinatorEntity[NordpoolPredictCoordinator], RestoreNumber, NumberEntity):
+class _NordpoolWindowBaseNumber(CoordinatorEntity[NordpoolPredictCoordinator], RestoreNumber, NumberEntity):
     _attr_has_entity_name = True
     _attr_mode = NumberMode.BOX
     _attr_native_step = 1
@@ -184,7 +192,7 @@ class _NordpoolCustomWindowBaseNumber(CoordinatorEntity[NordpoolPredictCoordinat
         return {}
 
 
-class NordpoolCheapestWindowLookaheadHoursNumber(_NordpoolCustomWindowBaseNumber):
+class NordpoolCheapestWindowLookaheadHoursNumber(_NordpoolWindowBaseNumber):
     _attr_translation_key = "cheapest_window_lookahead_hours"
     _attr_icon = "mdi:timeline-clock-outline"
     _attr_native_min_value = MIN_CHEAPEST_WINDOW_LOOKAHEAD_HOURS
@@ -220,7 +228,73 @@ class NordpoolCheapestWindowLookaheadHoursNumber(_NordpoolCustomWindowBaseNumber
         return {ATTR_WINDOW_LOOKAHEAD_HOURS: self._value}
 
 
-class NordpoolCustomWindowHoursNumber(_NordpoolCustomWindowBaseNumber):
+class NordpoolCheapestWindowStartHourNumber(_NordpoolWindowBaseNumber):
+    _attr_translation_key = "cheapest_window_start_hour"
+    _attr_icon = "mdi:clock-start"
+    _attr_native_min_value = MIN_CHEAPEST_WINDOW_HOUR
+    _attr_native_max_value = MAX_CHEAPEST_WINDOW_HOUR
+
+    def __init__(self, coordinator: NordpoolPredictCoordinator, entry: ConfigEntry) -> None:
+        super().__init__(coordinator, entry)
+        self._value = DEFAULT_CHEAPEST_WINDOW_START_HOUR
+        self._attr_unique_id = f"{entry.entry_id}_cheapest_window_start_hour"
+        self._attr_name = "Cheapest Window Start Hour"
+
+    def _restore_value(self, value: float | int | None) -> int:
+        if value is None:
+            return DEFAULT_CHEAPEST_WINDOW_START_HOUR
+        try:
+            coerced = int(round(float(value)))
+        except (TypeError, ValueError):
+            coerced = DEFAULT_CHEAPEST_WINDOW_START_HOUR
+        bounded = max(MIN_CHEAPEST_WINDOW_HOUR, min(MAX_CHEAPEST_WINDOW_HOUR, coerced))
+        return bounded
+
+    async def _apply_value(self, value: int) -> None:
+        self.coordinator.set_cheapest_window_start_hour(value)
+
+    def _read_from_coordinator(self) -> int:
+        return int(self.coordinator.cheapest_window_start_hour)
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        return {ATTR_CHEAPEST_WINDOW_START_HOUR: self._value}
+
+
+class NordpoolCheapestWindowEndHourNumber(_NordpoolWindowBaseNumber):
+    _attr_translation_key = "cheapest_window_end_hour"
+    _attr_icon = "mdi:clock-end"
+    _attr_native_min_value = MIN_CHEAPEST_WINDOW_HOUR
+    _attr_native_max_value = MAX_CHEAPEST_WINDOW_HOUR
+
+    def __init__(self, coordinator: NordpoolPredictCoordinator, entry: ConfigEntry) -> None:
+        super().__init__(coordinator, entry)
+        self._value = DEFAULT_CHEAPEST_WINDOW_END_HOUR
+        self._attr_unique_id = f"{entry.entry_id}_cheapest_window_end_hour"
+        self._attr_name = "Cheapest Window End Hour"
+
+    def _restore_value(self, value: float | int | None) -> int:
+        if value is None:
+            return DEFAULT_CHEAPEST_WINDOW_END_HOUR
+        try:
+            coerced = int(round(float(value)))
+        except (TypeError, ValueError):
+            coerced = DEFAULT_CHEAPEST_WINDOW_END_HOUR
+        bounded = max(MIN_CHEAPEST_WINDOW_HOUR, min(MAX_CHEAPEST_WINDOW_HOUR, coerced))
+        return bounded
+
+    async def _apply_value(self, value: int) -> None:
+        self.coordinator.set_cheapest_window_end_hour(value)
+
+    def _read_from_coordinator(self) -> int:
+        return int(self.coordinator.cheapest_window_end_hour)
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        return {ATTR_CHEAPEST_WINDOW_END_HOUR: self._value}
+
+
+class NordpoolCustomWindowHoursNumber(_NordpoolWindowBaseNumber):
     _attr_translation_key = "custom_window_hours"
     _attr_icon = "mdi:clock-time-four-outline"
     _attr_native_min_value = MIN_CUSTOM_WINDOW_HOURS
@@ -235,7 +309,10 @@ class NordpoolCustomWindowHoursNumber(_NordpoolCustomWindowBaseNumber):
     def _restore_value(self, value: float | int | None) -> int:
         if value is None:
             return DEFAULT_CUSTOM_WINDOW_HOURS
-        coerced = int(round(float(value)))
+        try:
+            coerced = int(round(float(value)))
+        except (TypeError, ValueError):
+            coerced = DEFAULT_CUSTOM_WINDOW_HOURS
         bounded = max(MIN_CUSTOM_WINDOW_HOURS, min(MAX_CUSTOM_WINDOW_HOURS, coerced))
         return bounded
 
@@ -250,7 +327,7 @@ class NordpoolCustomWindowHoursNumber(_NordpoolCustomWindowBaseNumber):
         return {ATTR_CUSTOM_WINDOW_HOURS: self._value}
 
 
-class NordpoolCustomWindowStartHourNumber(_NordpoolCustomWindowBaseNumber):
+class NordpoolCustomWindowStartHourNumber(_NordpoolWindowBaseNumber):
     _attr_translation_key = "custom_window_start_hour"
     _attr_icon = "mdi:clock-start"
     _attr_native_min_value = MIN_CUSTOM_WINDOW_HOUR
@@ -265,7 +342,10 @@ class NordpoolCustomWindowStartHourNumber(_NordpoolCustomWindowBaseNumber):
     def _restore_value(self, value: float | int | None) -> int:
         if value is None:
             return DEFAULT_CUSTOM_WINDOW_START_HOUR
-        coerced = int(round(float(value)))
+        try:
+            coerced = int(round(float(value)))
+        except (TypeError, ValueError):
+            coerced = DEFAULT_CUSTOM_WINDOW_START_HOUR
         bounded = max(MIN_CUSTOM_WINDOW_HOUR, min(MAX_CUSTOM_WINDOW_HOUR, coerced))
         return bounded
 
@@ -280,7 +360,7 @@ class NordpoolCustomWindowStartHourNumber(_NordpoolCustomWindowBaseNumber):
         return {ATTR_CUSTOM_WINDOW_START_HOUR: self._value}
 
 
-class NordpoolCustomWindowEndHourNumber(_NordpoolCustomWindowBaseNumber):
+class NordpoolCustomWindowEndHourNumber(_NordpoolWindowBaseNumber):
     _attr_translation_key = "custom_window_end_hour"
     _attr_icon = "mdi:clock-end"
     _attr_native_min_value = MIN_CUSTOM_WINDOW_HOUR
@@ -295,7 +375,10 @@ class NordpoolCustomWindowEndHourNumber(_NordpoolCustomWindowBaseNumber):
     def _restore_value(self, value: float | int | None) -> int:
         if value is None:
             return DEFAULT_CUSTOM_WINDOW_END_HOUR
-        coerced = int(round(float(value)))
+        try:
+            coerced = int(round(float(value)))
+        except (TypeError, ValueError):
+            coerced = DEFAULT_CUSTOM_WINDOW_END_HOUR
         bounded = max(MIN_CUSTOM_WINDOW_HOUR, min(MAX_CUSTOM_WINDOW_HOUR, coerced))
         return bounded
 
@@ -310,7 +393,7 @@ class NordpoolCustomWindowEndHourNumber(_NordpoolCustomWindowBaseNumber):
         return {ATTR_CUSTOM_WINDOW_END_HOUR: self._value}
 
 
-class NordpoolCustomWindowLookaheadHoursNumber(_NordpoolCustomWindowBaseNumber):
+class NordpoolCustomWindowLookaheadHoursNumber(_NordpoolWindowBaseNumber):
     _attr_translation_key = "custom_window_lookahead_hours"
     _attr_icon = "mdi:clock-fast"
     _attr_native_min_value = MIN_CUSTOM_WINDOW_LOOKAHEAD_HOURS
@@ -325,7 +408,10 @@ class NordpoolCustomWindowLookaheadHoursNumber(_NordpoolCustomWindowBaseNumber):
     def _restore_value(self, value: float | int | None) -> int:
         if value is None:
             return DEFAULT_CUSTOM_WINDOW_LOOKAHEAD_HOURS
-        coerced = int(round(float(value)))
+        try:
+            coerced = int(round(float(value)))
+        except (TypeError, ValueError):
+            coerced = DEFAULT_CUSTOM_WINDOW_LOOKAHEAD_HOURS
         bounded = max(
             MIN_CUSTOM_WINDOW_LOOKAHEAD_HOURS,
             min(MAX_CUSTOM_WINDOW_LOOKAHEAD_HOURS, coerced),
