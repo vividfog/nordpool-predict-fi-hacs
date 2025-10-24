@@ -27,6 +27,7 @@
 - Cheapest rolling windows (3h/6h/12h) are derived from contiguous hourly points across full merged data and cached for sensor use. All fixed windows respect a shared lookahead horizon (hours ahead from the current hour anchor); candidate windows must end before the horizon expires.
 - Full Helsinki days (00:00-23:00) are grouped into `DailyAverage` payloads for downstream sensors and UI.
 - Custom cheapest window searches honour a user-defined lookahead horizon (hours ahead from the current hour anchor); candidate windows must end before the horizon expires.
+- Window attributes and lookahead limits are emitted in Helsinki local time year-round (handles DST transitions).
 - Networking via `aiohttp` session + `async_timeout`.
 
 ### Time semantics (important)
