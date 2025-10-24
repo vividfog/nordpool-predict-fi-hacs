@@ -3,6 +3,8 @@ from __future__ import annotations
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
+from zoneinfo import ZoneInfo
+
 import pytest
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
@@ -45,6 +47,7 @@ from custom_components.nordpool_predict_fi.const import (
 from custom_components.nordpool_predict_fi.coordinator import (
     DailyAverage,
     NordpoolPredictCoordinator,
+    PriceWindow,
     SeriesPoint,
 )
 
@@ -53,6 +56,131 @@ def _series_point(hours: int, value: float, base: datetime) -> SeriesPoint:
     target = base + timedelta(hours=hours)
     return SeriesPoint(datetime=target, value=value)
 
+
+HELSINKI_TZ = ZoneInfo("Europe/Helsinki")
+
+
+def _helsinki_time(
+    year: int,
+    month: int,
+    day: int,
+    hour: int,
+    minute: int = 0,
+    *,
+    fold: int = 0,
+) -> datetime:
+    return datetime(year, month, day, hour, minute, tzinfo=HELSINKI_TZ, fold=fold)
+
+
+async def _setup_window_scenario(
+    hass,
+    label: str,
+    now_utc: datetime,
+    local_series: list[tuple[datetime, float]],
+    *,
+    shared_mask: tuple[int, int] | None = None,
+    custom_mask: tuple[int, int] | None = None,
+    shared_lookahead: int | None = None,
+    custom_lookahead: int | None = None,
+    custom_hours: int = 3,
+) -> dict[str, Any]:
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        unique_id=f"{DOMAIN}-{label}",
+        title=f"Nordpool Predict FI {label}",
+        data={},
+    )
+    entry.add_to_hass(hass)
+
+    coordinator = NordpoolPredictCoordinator(
+        hass=hass,
+        entry_id=entry.entry_id,
+        base_url="https://example.com/deploy",
+        update_interval=timedelta(minutes=15),
+    )
+    coordinator._current_time = lambda now=now_utc: now
+
+    if shared_mask is not None:
+        start, end = shared_mask
+        coordinator.set_cheapest_window_start_hour(start)
+        coordinator.set_cheapest_window_end_hour(end)
+    if custom_mask is not None:
+        start, end = custom_mask
+        coordinator.set_custom_window_start_hour(start)
+        coordinator.set_custom_window_end_hour(end)
+    if shared_lookahead is not None:
+        coordinator.set_cheapest_window_lookahead_hours(shared_lookahead)
+    if custom_lookahead is not None:
+        coordinator.set_custom_window_lookahead_hours(custom_lookahead)
+    coordinator.set_custom_window_hours(custom_hours)
+
+    points = [
+        SeriesPoint(datetime=local_dt.astimezone(timezone.utc), value=value)
+        for local_dt, value in local_series
+    ]
+    helsinki_tz = coordinator._get_helsinki_timezone()
+
+    lookahead_limit = coordinator._cheapest_window_lookahead_limit(now_utc)
+    mask_hours = coordinator._mask_hours(
+        coordinator.cheapest_window_start_hour,
+        coordinator.cheapest_window_end_hour,
+    )
+    window_filter = coordinator._build_start_hour_filter(mask_hours, helsinki_tz)
+    current_anchor = now_utc.replace(minute=0, second=0, microsecond=0)
+
+    cheapest_windows: dict[int, PriceWindow | None] = {}
+    for hours in CHEAPEST_WINDOW_HOURS:
+        earliest_start = current_anchor - timedelta(hours=hours - 1)
+        window = coordinator._find_cheapest_window(
+            points,
+            hours,
+            earliest_start=earliest_start,
+            min_end=now_utc,
+            max_end=lookahead_limit,
+            window_filter=window_filter,
+        )
+        if window is None:
+            window = coordinator._find_cheapest_window(
+                points,
+                hours,
+                earliest_start=earliest_start,
+                max_end=lookahead_limit,
+                window_filter=window_filter,
+            )
+        cheapest_windows[hours] = window
+
+    custom_entry = coordinator._build_custom_window_entry(points, now_utc, helsinki_tz)
+
+    coordinator.async_set_updated_data(
+        {
+            "price": {
+                "forecast": points,
+                "current": None,
+                "cheapest_windows": cheapest_windows,
+                "cheapest_windows_meta": {
+                    "lookahead_hours": coordinator.cheapest_window_lookahead_hours,
+                    "lookahead_limit": lookahead_limit,
+                    "start_hour": coordinator.cheapest_window_start_hour,
+                    "end_hour": coordinator.cheapest_window_end_hour,
+                },
+                "now": now_utc,
+                "forecast_start": points[0].datetime if points else None,
+                CUSTOM_WINDOW_KEY: custom_entry,
+                "daily_averages": [],
+            },
+            "windpower": None,
+            "narration": {},
+        }
+    )
+
+    return {
+        "coordinator": coordinator,
+        "entry": entry,
+        "shared": sensor.NordpoolCheapestWindowSensor(coordinator, entry, 3),
+        "shared_active": sensor.NordpoolCheapestWindowActiveSensor(coordinator, entry, 3),
+        "custom": sensor.NordpoolCheapestCustomWindowSensor(coordinator, entry),
+        "custom_active": sensor.NordpoolCheapestCustomWindowActiveSensor(coordinator, entry),
+    }
 
 @pytest.mark.asyncio
 async def test_async_setup_entry_registers_entities(hass, enable_custom_integrations) -> None:
@@ -224,6 +352,8 @@ async def test_async_setup_entry_registers_entities(hass, enable_custom_integrat
         sensor.NordpoolNarrationSensor,
     )
     assert all(isinstance(entity, allowed_types) for entity in added)
+    helsinki_tz = coordinator._get_helsinki_timezone()
+
     price = next(entity for entity in added if isinstance(entity, sensor.NordpoolPriceSensor))
     attrs = price.extra_state_attributes
     assert price.native_value == pytest.approx(round(current_point.value, 1))
@@ -314,9 +444,9 @@ async def test_async_setup_entry_registers_entities(hass, enable_custom_integrat
     assert three_window is not None
     assert three_hour_sensor.native_value == pytest.approx(round(three_window.average, 1))
     assert three_attrs[ATTR_RAW_SOURCE] == "https://example.com/deploy"
-    assert three_attrs[ATTR_WINDOW_START] == three_window.start.isoformat()
+    assert three_attrs[ATTR_WINDOW_START] == three_window.start.astimezone(helsinki_tz).isoformat()
     assert datetime.fromisoformat(three_attrs[ATTR_WINDOW_START]) >= earliest_start_by_hours[3]
-    assert three_attrs[ATTR_WINDOW_END] == three_window.end.isoformat()
+    assert three_attrs[ATTR_WINDOW_END] == three_window.end.astimezone(helsinki_tz).isoformat()
     assert three_attrs[ATTR_WINDOW_DURATION] == 3
     assert len(three_attrs[ATTR_WINDOW_POINTS]) == len(three_window.points)
     first_point_value = three_attrs[ATTR_WINDOW_POINTS][0]["value"]
@@ -330,12 +460,24 @@ async def test_async_setup_entry_registers_entities(hass, enable_custom_integrat
     assert three_attrs[ATTR_CHEAPEST_WINDOW_START_HOUR] == coordinator.cheapest_window_start_hour
     assert three_attrs[ATTR_CHEAPEST_WINDOW_END_HOUR] == coordinator.cheapest_window_end_hour
 
+    parsed_three_start = datetime.fromisoformat(three_attrs[ATTR_WINDOW_START])
+    assert parsed_three_start.tzinfo is not None
+    assert parsed_three_start.astimezone(helsinki_tz) == three_window.start.astimezone(helsinki_tz)
+    parsed_three_end = datetime.fromisoformat(three_attrs[ATTR_WINDOW_END])
+    assert parsed_three_end.tzinfo is not None
+    assert parsed_three_end.astimezone(helsinki_tz) == three_window.end.astimezone(helsinki_tz)
+    parsed_three_limit = datetime.fromisoformat(three_attrs[ATTR_WINDOW_LOOKAHEAD_LIMIT])
+    assert parsed_three_limit.tzinfo is not None
+    assert parsed_three_limit.astimezone(helsinki_tz) == cheapest_window_limit.astimezone(helsinki_tz)
+
     six_hour_sensor = by_duration[6]
     six_attrs = six_hour_sensor.extra_state_attributes
     six_window = cheapest_windows[6]
     assert six_window is not None
     assert six_hour_sensor.native_value == pytest.approx(round(six_window.average, 1))
+    assert six_attrs[ATTR_WINDOW_START] == six_window.start.astimezone(helsinki_tz).isoformat()
     assert datetime.fromisoformat(six_attrs[ATTR_WINDOW_START]) >= earliest_start_by_hours[6]
+    assert six_attrs[ATTR_WINDOW_END] == six_window.end.astimezone(helsinki_tz).isoformat()
     assert len(six_attrs[ATTR_WINDOW_POINTS]) == len(six_window.points)
     assert six_attrs[ATTR_EXTRA_FEES] == pytest.approx(0.0)
     assert (
@@ -346,12 +488,17 @@ async def test_async_setup_entry_registers_entities(hass, enable_custom_integrat
     assert six_attrs[ATTR_CHEAPEST_WINDOW_START_HOUR] == coordinator.cheapest_window_start_hour
     assert six_attrs[ATTR_CHEAPEST_WINDOW_END_HOUR] == coordinator.cheapest_window_end_hour
 
+    parsed_six_limit = datetime.fromisoformat(six_attrs[ATTR_WINDOW_LOOKAHEAD_LIMIT])
+    assert parsed_six_limit.tzinfo is not None
+
     twelve_hour_sensor = by_duration[12]
     twelve_attrs = twelve_hour_sensor.extra_state_attributes
     twelve_window = cheapest_windows[12]
     assert twelve_window is not None
     assert twelve_hour_sensor.native_value == pytest.approx(round(twelve_window.average, 1))
+    assert twelve_attrs[ATTR_WINDOW_START] == twelve_window.start.astimezone(helsinki_tz).isoformat()
     assert datetime.fromisoformat(twelve_attrs[ATTR_WINDOW_START]) >= earliest_start_by_hours[12]
+    assert twelve_attrs[ATTR_WINDOW_END] == twelve_window.end.astimezone(helsinki_tz).isoformat()
     assert len(twelve_attrs[ATTR_WINDOW_POINTS]) == len(twelve_window.points)
     assert twelve_attrs[ATTR_EXTRA_FEES] == pytest.approx(0.0)
     assert (
@@ -378,8 +525,8 @@ async def test_async_setup_entry_registers_entities(hass, enable_custom_integrat
         assert attrs_active[ATTR_WINDOW_DURATION] == hours
         assert attrs_active[ATTR_RAW_SOURCE] == "https://example.com/deploy"
         if window:
-            assert attrs_active[ATTR_WINDOW_START] == window.start.isoformat()
-            assert attrs_active[ATTR_WINDOW_END] == window.end.isoformat()
+            assert attrs_active[ATTR_WINDOW_START] == window.start.astimezone(helsinki_tz).isoformat()
+            assert attrs_active[ATTR_WINDOW_END] == window.end.astimezone(helsinki_tz).isoformat()
             assert attrs_active[ATTR_WINDOW_POINTS]
         else:
             assert attrs_active[ATTR_WINDOW_START] is None
@@ -393,6 +540,9 @@ async def test_async_setup_entry_registers_entities(hass, enable_custom_integrat
         assert attrs_active[ATTR_WINDOW_LOOKAHEAD_LIMIT] == cheapest_window_limit.isoformat()
         assert attrs_active[ATTR_CHEAPEST_WINDOW_START_HOUR] == coordinator.cheapest_window_start_hour
         assert attrs_active[ATTR_CHEAPEST_WINDOW_END_HOUR] == coordinator.cheapest_window_end_hour
+
+        parsed_active_limit = datetime.fromisoformat(attrs_active[ATTR_WINDOW_LOOKAHEAD_LIMIT])
+        assert parsed_active_limit.tzinfo is not None
 
     custom_sensor = next(
         entity for entity in added if isinstance(entity, sensor.NordpoolCheapestCustomWindowSensor)
@@ -409,8 +559,8 @@ async def test_async_setup_entry_registers_entities(hass, enable_custom_integrat
     assert custom_attrs[ATTR_WINDOW_LOOKAHEAD_LIMIT] == cheapest_window_limit.isoformat()
     if custom_window:
         assert custom_sensor.native_value == pytest.approx(round(custom_window.average, 1))
-        assert custom_attrs[ATTR_WINDOW_START] == custom_window.start.isoformat()
-        assert custom_attrs[ATTR_WINDOW_END] == custom_window.end.isoformat()
+        assert custom_attrs[ATTR_WINDOW_START] == custom_window.start.astimezone(helsinki_tz).isoformat()
+        assert custom_attrs[ATTR_WINDOW_END] == custom_window.end.astimezone(helsinki_tz).isoformat()
         assert len(custom_attrs[ATTR_WINDOW_POINTS]) == len(custom_window.points)
     else:
         assert custom_sensor.native_value is None
@@ -419,6 +569,21 @@ async def test_async_setup_entry_registers_entities(hass, enable_custom_integrat
         assert custom_attrs[ATTR_WINDOW_POINTS] == []
     assert custom_attrs[ATTR_RAW_SOURCE] == "https://example.com/deploy"
     assert custom_attrs[ATTR_EXTRA_FEES] == pytest.approx(0.0)
+    parsed_custom_start = (
+        datetime.fromisoformat(custom_attrs[ATTR_WINDOW_START]) if custom_window else None
+    )
+    parsed_custom_end = datetime.fromisoformat(custom_attrs[ATTR_WINDOW_END]) if custom_window else None
+    parsed_custom_limit = datetime.fromisoformat(custom_attrs[ATTR_WINDOW_LOOKAHEAD_LIMIT])
+    assert parsed_custom_limit.tzinfo is not None
+    if custom_window:
+        assert parsed_custom_start.tzinfo is not None
+
+        assert parsed_custom_start.astimezone(helsinki_tz) == custom_window.start.astimezone(helsinki_tz)
+        assert parsed_custom_end.tzinfo is not None
+        assert parsed_custom_end.astimezone(helsinki_tz) == custom_window.end.astimezone(helsinki_tz)
+
+    parsed_custom_lookahead = datetime.fromisoformat(custom_attrs[ATTR_CUSTOM_WINDOW_LOOKAHEAD_LIMIT])
+    assert parsed_custom_lookahead.tzinfo is not None
 
     custom_active = next(
         entity for entity in added if isinstance(entity, sensor.NordpoolCheapestCustomWindowActiveSensor)
@@ -431,8 +596,14 @@ async def test_async_setup_entry_registers_entities(hass, enable_custom_integrat
     assert custom_active_attrs[ATTR_CUSTOM_WINDOW_END_HOUR] == 23
     assert custom_active_attrs[ATTR_WINDOW_DURATION] == custom_hours
     if custom_window:
-        assert custom_active_attrs[ATTR_WINDOW_START] == custom_window.start.isoformat()
-        assert custom_active_attrs[ATTR_WINDOW_END] == custom_window.end.isoformat()
+        assert (
+            custom_active_attrs[ATTR_WINDOW_START]
+            == custom_window.start.astimezone(helsinki_tz).isoformat()
+        )
+        assert (
+            custom_active_attrs[ATTR_WINDOW_END]
+            == custom_window.end.astimezone(helsinki_tz).isoformat()
+        )
         assert custom_active_attrs[ATTR_WINDOW_POINTS]
     else:
         assert custom_active_attrs[ATTR_WINDOW_START] is None
@@ -448,6 +619,8 @@ async def test_async_setup_entry_registers_entities(hass, enable_custom_integrat
         custom_active_attrs[ATTR_WINDOW_LOOKAHEAD_LIMIT]
         == cheapest_window_limit.isoformat()
     )
+    parsed_custom_active_limit = datetime.fromisoformat(custom_active_attrs[ATTR_WINDOW_LOOKAHEAD_LIMIT])
+    assert parsed_custom_active_limit.tzinfo is not None
 
     narrations = {
         entity.extra_state_attributes[ATTR_LANGUAGE]: entity
@@ -467,6 +640,107 @@ async def test_async_setup_entry_registers_entities(hass, enable_custom_integrat
     assert en_sensor.native_value == narration_section["en"]["summary"]
     assert en_attrs[ATTR_NARRATION_CONTENT] == narration_section["en"]["content"]
     assert en_attrs[ATTR_SOURCE_URL] == narration_section["en"]["source"]
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("window_kind", ("shared", "custom"))
+@pytest.mark.parametrize(
+    "label, local_now, expected_offset",
+    [
+        ("summer", _helsinki_time(2024, 6, 15, 12), "+03:00"),
+        ("winter", _helsinki_time(2024, 12, 15, 12), "+02:00"),
+    ],
+)
+async def test_window_attributes_use_helsinki_offsets(
+    hass, enable_custom_integrations, window_kind, label, local_now, expected_offset
+) -> None:
+    now_utc = local_now.astimezone(timezone.utc)
+    local_series = [
+        (local_now - timedelta(hours=2), 10.0),
+        (local_now - timedelta(hours=1), 9.0),
+        (local_now, 8.5),
+    ]
+    sensors = await _setup_window_scenario(
+        hass,
+        f"{label}-{window_kind}",
+        now_utc,
+        local_series,
+    )
+    target = sensors["shared"] if window_kind == "shared" else sensors["custom"]
+    attrs = target.extra_state_attributes
+    assert attrs[ATTR_WINDOW_START] is not None
+    assert attrs[ATTR_WINDOW_END] is not None
+    assert attrs[ATTR_WINDOW_LOOKAHEAD_LIMIT] is not None
+    assert attrs[ATTR_WINDOW_START].endswith(expected_offset)
+    assert attrs[ATTR_WINDOW_END].endswith(expected_offset)
+    assert attrs[ATTR_WINDOW_LOOKAHEAD_LIMIT].endswith(expected_offset)
+    parsed_start = datetime.fromisoformat(attrs[ATTR_WINDOW_START])
+    assert parsed_start.tzinfo is not None
+    parsed_end = datetime.fromisoformat(attrs[ATTR_WINDOW_END])
+    assert parsed_end.tzinfo is not None
+    parsed_limit = datetime.fromisoformat(attrs[ATTR_WINDOW_LOOKAHEAD_LIMIT])
+    assert parsed_limit.tzinfo is not None
+    if window_kind == "custom":
+        custom_limit = datetime.fromisoformat(attrs[ATTR_CUSTOM_WINDOW_LOOKAHEAD_LIMIT])
+        assert custom_limit.tzinfo is not None
+        assert attrs[ATTR_CUSTOM_WINDOW_LOOKAHEAD_LIMIT].endswith(expected_offset)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("window_kind", ("shared", "custom"))
+async def test_window_active_handles_fallback_duplicate_hour(
+    hass, enable_custom_integrations, window_kind
+) -> None:
+    local_now = _helsinki_time(2024, 10, 27, 3, 30, fold=1)
+    now_utc = local_now.astimezone(timezone.utc)
+    local_series = [
+        (_helsinki_time(2024, 10, 27, 2), 12.0),
+        (_helsinki_time(2024, 10, 27, 3, fold=0), 8.0),
+        (_helsinki_time(2024, 10, 27, 3, fold=1), 6.0),
+    ]
+    sensors = await _setup_window_scenario(
+        hass,
+        f"fallback-{window_kind}",
+        now_utc,
+        local_series,
+    )
+    active_sensor = sensors["shared_active"] if window_kind == "shared" else sensors["custom_active"]
+    target_sensor = sensors["shared"] if window_kind == "shared" else sensors["custom"]
+    attrs = target_sensor.extra_state_attributes
+    assert active_sensor.native_value is True
+    assert attrs[ATTR_WINDOW_START].endswith("+03:00")
+    assert attrs[ATTR_WINDOW_END].endswith("+02:00")
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("window_kind", ("shared", "custom"))
+async def test_window_mask_missing_hour_spring_forward(
+    hass, enable_custom_integrations, window_kind
+) -> None:
+    local_now = _helsinki_time(2024, 3, 31, 6)
+    now_utc = local_now.astimezone(timezone.utc)
+    local_series = [
+        (_helsinki_time(2024, 3, 31, 1), 20.0),
+        (_helsinki_time(2024, 3, 31, 2), 18.0),
+        (_helsinki_time(2024, 3, 31, 4), 5.0),
+        (_helsinki_time(2024, 3, 31, 5), 4.5),
+        (_helsinki_time(2024, 3, 31, 6), 4.0),
+    ]
+    shared_mask = (3, 3) if window_kind == "shared" else None
+    custom_mask = (3, 3) if window_kind == "custom" else None
+    sensors = await _setup_window_scenario(
+        hass,
+        f"spring-forward-{window_kind}",
+        now_utc,
+        local_series,
+        shared_mask=shared_mask,
+        custom_mask=custom_mask,
+    )
+    target = sensors["shared"] if window_kind == "shared" else sensors["custom"]
+    attrs = target.extra_state_attributes
+    assert attrs[ATTR_WINDOW_START] is None
+    assert attrs[ATTR_WINDOW_END] is None
+    assert attrs[ATTR_WINDOW_POINTS] == []
 
 
 @pytest.mark.asyncio

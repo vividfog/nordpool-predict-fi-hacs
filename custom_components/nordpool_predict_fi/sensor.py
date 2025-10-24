@@ -440,6 +440,7 @@ class _NordpoolCheapestWindowBaseSensor(NordpoolBaseSensor):
 
     def _window_attributes(self, window: PriceWindow | None) -> dict[str, Any]:
         meta = self._cheapest_windows_meta()
+        helsinki_tz = self.coordinator._get_helsinki_timezone()
         attributes: dict[str, Any] = {
             ATTR_RAW_SOURCE: self.coordinator.base_url,
             ATTR_WINDOW_DURATION: self._hours,
@@ -450,8 +451,10 @@ class _NordpoolCheapestWindowBaseSensor(NordpoolBaseSensor):
             ATTR_CHEAPEST_WINDOW_END_HOUR: self._coerce_int(meta.get("end_hour")),
         }
         if window:
-            attributes[ATTR_WINDOW_START] = window.start.isoformat()
-            attributes[ATTR_WINDOW_END] = window.end.isoformat()
+            start_local = window.start.astimezone(helsinki_tz)
+            end_local = window.end.astimezone(helsinki_tz)
+            attributes[ATTR_WINDOW_START] = start_local.isoformat()
+            attributes[ATTR_WINDOW_END] = end_local.isoformat()
             attributes[ATTR_WINDOW_POINTS] = self._build_forecast_attributes(
                 window.points,
                 decimals=1,
@@ -563,6 +566,7 @@ class _NordpoolCheapestCustomWindowBaseSensor(NordpoolBaseSensor):
         start_hour = self._coerce_int(section.get("start_hour"))
         end_hour = self._coerce_int(section.get("end_hour"))
         shared_meta = self._shared_meta()
+        helsinki_tz = self.coordinator._get_helsinki_timezone()
         attributes: dict[str, Any] = {
             ATTR_RAW_SOURCE: self.coordinator.base_url,
             ATTR_WINDOW_DURATION: hours,
@@ -578,8 +582,10 @@ class _NordpoolCheapestCustomWindowBaseSensor(NordpoolBaseSensor):
             ATTR_WINDOW_LOOKAHEAD_LIMIT: self._coerce_datetime_iso(shared_meta.get("lookahead_limit")),
         }
         if window:
-            attributes[ATTR_WINDOW_START] = window.start.isoformat()
-            attributes[ATTR_WINDOW_END] = window.end.isoformat()
+            start_local = window.start.astimezone(helsinki_tz)
+            end_local = window.end.astimezone(helsinki_tz)
+            attributes[ATTR_WINDOW_START] = start_local.isoformat()
+            attributes[ATTR_WINDOW_END] = end_local.isoformat()
             attributes[ATTR_WINDOW_POINTS] = self._build_forecast_attributes(
                 window.points,
                 decimals=1,

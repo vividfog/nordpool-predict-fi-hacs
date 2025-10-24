@@ -836,11 +836,13 @@ class NordpoolPredictCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         return best_window
 
     def _custom_window_lookahead_limit(self, now: datetime) -> datetime:
-        anchor = now.replace(minute=0, second=0, microsecond=0)
+        helsinki_tz = self._get_helsinki_timezone()
+        anchor = now.astimezone(helsinki_tz).replace(minute=0, second=0, microsecond=0)
         return anchor + timedelta(hours=self._custom_window_lookahead_hours)
 
     def _cheapest_window_lookahead_limit(self, now: datetime) -> datetime:
-        anchor = now.replace(minute=0, second=0, microsecond=0)
+        helsinki_tz = self._get_helsinki_timezone()
+        anchor = now.astimezone(helsinki_tz).replace(minute=0, second=0, microsecond=0)
         return anchor + timedelta(hours=self._cheapest_window_lookahead_hours)
 
     @staticmethod
