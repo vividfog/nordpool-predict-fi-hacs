@@ -997,13 +997,23 @@ class NordpoolPredictCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         helsinki_tz: tzinfo,
         local_date: date,
     ) -> bool:
-        if len(points) != 24:
+        if not points:
+            return False
+
+        points = sorted(points, key=lambda item: item.datetime)
+        start_local = datetime.combine(local_date, time(0), tzinfo=helsinki_tz)
+        end_local = start_local + timedelta(days=1)
+        start_utc = start_local.astimezone(timezone.utc)
+        end_utc = end_local.astimezone(timezone.utc)
+        expected_hours = int((end_utc - start_utc).total_seconds() // 3600)
+        if expected_hours <= 0 or len(points) != expected_hours:
             return False
 
         for index, point in enumerate(points):
             local_dt = point.datetime.astimezone(helsinki_tz)
-            if local_dt.date() != local_date:
+            if not (start_local <= local_dt < end_local):
                 return False
-            if local_dt.hour != index:
+            expected_dt = start_utc + timedelta(hours=index)
+            if point.datetime != expected_dt:
                 return False
         return True

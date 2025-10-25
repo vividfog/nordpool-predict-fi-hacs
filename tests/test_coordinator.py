@@ -199,6 +199,53 @@ async def test_coordinator_parses_series(hass, enable_custom_integrations, monke
     assert narration["fi"]["source"] == f"{base_url}/narration.md"
     assert narration["en"]["summary"] == "Short summary on the first line."
 
+def test_daily_average_handles_spring_forward_day(hass, enable_custom_integrations) -> None:
+    helsinki = ZoneInfo("Europe/Helsinki")
+    start_utc = datetime(2025, 3, 29, 22, 0, tzinfo=timezone.utc)
+    series = [
+        SeriesPoint(datetime=start_utc + timedelta(hours=offset), value=float(offset))
+        for offset in range(23)
+    ]
+    coordinator = NordpoolPredictCoordinator(
+        hass=hass,
+        entry_id="test",
+        base_url="https://example.com/deploy",
+        update_interval=timedelta(minutes=15),
+    )
+
+    daily_averages = coordinator._calculate_daily_averages(series, helsinki)
+    assert len(daily_averages) == 1
+    day = daily_averages[0]
+    assert day.start == datetime(2025, 3, 30, 0, 0, tzinfo=helsinki)
+    assert day.end == datetime(2025, 3, 31, 0, 0, tzinfo=helsinki)
+    assert len(day.points) == 23
+    expected_average = sum(point.value for point in day.points) / len(day.points)
+    assert day.average == pytest.approx(expected_average)
+
+
+def test_daily_average_handles_fall_back_day(hass, enable_custom_integrations) -> None:
+    helsinki = ZoneInfo("Europe/Helsinki")
+    start_utc = datetime(2025, 10, 25, 21, 0, tzinfo=timezone.utc)
+    series = [
+        SeriesPoint(datetime=start_utc + timedelta(hours=offset), value=float(offset))
+        for offset in range(25)
+    ]
+    coordinator = NordpoolPredictCoordinator(
+        hass=hass,
+        entry_id="test",
+        base_url="https://example.com/deploy",
+        update_interval=timedelta(minutes=15),
+    )
+
+    daily_averages = coordinator._calculate_daily_averages(series, helsinki)
+    assert len(daily_averages) == 1
+    day = daily_averages[0]
+    assert day.start == datetime(2025, 10, 26, 0, 0, tzinfo=helsinki)
+    assert day.end == datetime(2025, 10, 27, 0, 0, tzinfo=helsinki)
+    assert len(day.points) == 25
+    expected_average = sum(point.value for point in day.points) / len(day.points)
+    assert day.average == pytest.approx(expected_average)
+
 
 @pytest.mark.asyncio
 async def test_coordinator_merges_realized_and_forecast(
