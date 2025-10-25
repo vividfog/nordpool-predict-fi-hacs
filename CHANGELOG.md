@@ -2,6 +2,13 @@
 
 All notable changes to this project are documented here. This project follows the Common Changelog style (common-changelog.org).
 
+## 2025-10-26
+### Fixed
+- Daily average price sensor now keeps full Helsinki days even when DST produces 23 or 25 hourly samples.
+
+### Added
+- Regression coverage for fall-back and spring-forward scenarios across price-now, next-hour, wind, and cheapest window sensors.
+
 ## 2025-10-24
 ### Fixed
 - Cheapest/custom window attributes and lookahead deadlines now display in Helsinki local time year-round.
