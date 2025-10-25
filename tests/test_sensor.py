@@ -744,6 +744,273 @@ async def test_window_mask_missing_hour_spring_forward(
 
 
 @pytest.mark.asyncio
+async def test_price_now_prefers_fallback_duplicate_hour(hass, enable_custom_integrations) -> None:
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        unique_id="price-fallback",
+        title="Nordpool Predict FI Fallback",
+        data={},
+    )
+    entry.add_to_hass(hass)
+
+    coordinator = NordpoolPredictCoordinator(
+        hass=hass,
+        entry_id=entry.entry_id,
+        base_url="https://example.com/deploy",
+        update_interval=timedelta(minutes=15),
+    )
+    now_local = _helsinki_time(2024, 10, 27, 3, 30, fold=1)
+    now_utc = now_local.astimezone(timezone.utc)
+    coordinator._current_time = lambda now=now_utc: now
+
+    series = [
+        SeriesPoint(_helsinki_time(2024, 10, 27, 2).astimezone(timezone.utc), 12.0),
+        SeriesPoint(_helsinki_time(2024, 10, 27, 3, fold=0).astimezone(timezone.utc), 8.0),
+        SeriesPoint(_helsinki_time(2024, 10, 27, 3, fold=1).astimezone(timezone.utc), 6.0),
+        SeriesPoint(_helsinki_time(2024, 10, 27, 4).astimezone(timezone.utc), 4.5),
+    ]
+
+    coordinator.async_set_updated_data(
+        {
+            "price": {
+                "forecast": series,
+                "current": series[2],
+                "cheapest_windows": {},
+                "cheapest_windows_meta": {},
+                "now": now_utc,
+                "forecast_start": series[0].datetime,
+                CUSTOM_WINDOW_KEY: {},
+                "daily_averages": [],
+            },
+            "windpower": None,
+            "narration": {},
+        }
+    )
+
+    price_now = sensor.NordpoolPriceNowSensor(coordinator, entry)
+    assert price_now.native_value == pytest.approx(6.0)
+    attrs = price_now.extra_state_attributes
+    assert attrs[ATTR_TIMESTAMP] == series[2].datetime.isoformat()
+    assert attrs[ATTR_RAW_SOURCE] == "https://example.com/deploy"
+
+
+@pytest.mark.asyncio
+async def test_price_now_returns_unknown_for_spring_forward_gap(hass, enable_custom_integrations) -> None:
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        unique_id="price-spring-forward",
+        title="Nordpool Predict FI Spring Forward",
+        data={},
+    )
+    entry.add_to_hass(hass)
+
+    coordinator = NordpoolPredictCoordinator(
+        hass=hass,
+        entry_id=entry.entry_id,
+        base_url="https://example.com/deploy",
+        update_interval=timedelta(minutes=15),
+    )
+    now_local = _helsinki_time(2024, 3, 31, 2, 30)
+    now_utc = now_local.astimezone(timezone.utc)
+    coordinator._current_time = lambda now=now_utc: now
+
+    future_points = [
+        SeriesPoint(_helsinki_time(2024, 3, 31, 4).astimezone(timezone.utc), 7.5),
+        SeriesPoint(_helsinki_time(2024, 3, 31, 5).astimezone(timezone.utc), 6.0),
+    ]
+
+    coordinator.async_set_updated_data(
+        {
+            "price": {
+                "forecast": future_points,
+                "current": None,
+                "cheapest_windows": {},
+                "cheapest_windows_meta": {},
+                "now": now_utc,
+                "forecast_start": future_points[0].datetime,
+                CUSTOM_WINDOW_KEY: {},
+                "daily_averages": [],
+            },
+            "windpower": None,
+            "narration": {},
+        }
+    )
+
+    price_now = sensor.NordpoolPriceNowSensor(coordinator, entry)
+    assert price_now.native_value is None
+    attrs = price_now.extra_state_attributes
+    assert attrs[ATTR_TIMESTAMP] is None
+
+
+@pytest.mark.asyncio
+async def test_price_next_window_includes_duplicate_fallback_hour(hass, enable_custom_integrations) -> None:
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        unique_id="price-next-fallback",
+        title="Nordpool Predict FI Next Fallback",
+        data={},
+    )
+    entry.add_to_hass(hass)
+
+    coordinator = NordpoolPredictCoordinator(
+        hass=hass,
+        entry_id=entry.entry_id,
+        base_url="https://example.com/deploy",
+        update_interval=timedelta(minutes=15),
+    )
+    now_local = _helsinki_time(2024, 10, 27, 2, 30, fold=0)
+    now_utc = now_local.astimezone(timezone.utc)
+    coordinator._current_time = lambda now=now_utc: now
+
+    series = [
+        SeriesPoint(_helsinki_time(2024, 10, 27, 2).astimezone(timezone.utc), 10.0),
+        SeriesPoint(_helsinki_time(2024, 10, 27, 3, fold=0).astimezone(timezone.utc), 8.0),
+        SeriesPoint(_helsinki_time(2024, 10, 27, 3, fold=1).astimezone(timezone.utc), 6.0),
+        SeriesPoint(_helsinki_time(2024, 10, 27, 4).astimezone(timezone.utc), 4.0),
+        SeriesPoint(_helsinki_time(2024, 10, 27, 5).astimezone(timezone.utc), 3.0),
+    ]
+
+    coordinator.async_set_updated_data(
+        {
+            "price": {
+                "forecast": series,
+                "current": series[1],
+                "cheapest_windows": {},
+                "cheapest_windows_meta": {},
+                "now": now_utc,
+                "forecast_start": series[0].datetime,
+                CUSTOM_WINDOW_KEY: {},
+                "daily_averages": [],
+            },
+            "windpower": None,
+            "narration": {},
+        }
+    )
+
+    price_next = sensor.NordpoolPriceNextHoursSensor(coordinator, entry, 3)
+    assert price_next.native_value == pytest.approx(6.0)
+    attrs = price_next.extra_state_attributes
+    start_anchor = now_utc.replace(minute=0, second=0, microsecond=0) + timedelta(hours=1)
+    assert attrs[ATTR_TIMESTAMP] == start_anchor.isoformat()
+
+
+@pytest.mark.asyncio
+async def test_windpower_now_prefers_latest_duplicate_hour(hass, enable_custom_integrations) -> None:
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        unique_id="wind-fallback",
+        title="Nordpool Predict FI Wind Fallback",
+        data={},
+    )
+    entry.add_to_hass(hass)
+
+    coordinator = NordpoolPredictCoordinator(
+        hass=hass,
+        entry_id=entry.entry_id,
+        base_url="https://example.com/deploy",
+        update_interval=timedelta(minutes=15),
+    )
+    now_local = _helsinki_time(2024, 10, 27, 3, 15, fold=1)
+    now_utc = now_local.astimezone(timezone.utc)
+    coordinator._current_time = lambda now=now_utc: now
+
+    wind_series = [
+        SeriesPoint(_helsinki_time(2024, 10, 27, 2).astimezone(timezone.utc), 2200.0),
+        SeriesPoint(_helsinki_time(2024, 10, 27, 3, fold=0).astimezone(timezone.utc), 2100.0),
+        SeriesPoint(_helsinki_time(2024, 10, 27, 3, fold=1).astimezone(timezone.utc), 2000.0),
+    ]
+
+    coordinator.async_set_updated_data(
+        {
+            "price": {},
+            "windpower": {
+                "series": wind_series,
+                "current": None,
+            },
+            "narration": {},
+        }
+    )
+
+    wind_now = sensor.NordpoolWindpowerNowSensor(coordinator, entry)
+    assert wind_now.native_value == 2000
+    attrs = wind_now.extra_state_attributes
+    assert attrs[ATTR_TIMESTAMP] == wind_series[2].datetime.isoformat()
+
+
+@pytest.mark.asyncio
+async def test_cheapest_window_values_cover_duplicate_hour(hass, enable_custom_integrations) -> None:
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        unique_id="window-fallback",
+        title="Nordpool Predict FI Window Fallback",
+        data={},
+    )
+    entry.add_to_hass(hass)
+
+    coordinator = NordpoolPredictCoordinator(
+        hass=hass,
+        entry_id=entry.entry_id,
+        base_url="https://example.com/deploy",
+        update_interval=timedelta(minutes=15),
+    )
+    now_local = _helsinki_time(2024, 10, 27, 2, 45, fold=0)
+    now_utc = now_local.astimezone(timezone.utc)
+    coordinator._current_time = lambda now=now_utc: now
+
+    window_points = [
+        SeriesPoint(_helsinki_time(2024, 10, 27, 3, fold=0).astimezone(timezone.utc), 8.0),
+        SeriesPoint(_helsinki_time(2024, 10, 27, 3, fold=1).astimezone(timezone.utc), 6.0),
+        SeriesPoint(_helsinki_time(2024, 10, 27, 4).astimezone(timezone.utc), 5.0),
+    ]
+    window = PriceWindow(
+        duration_hours=3,
+        start=window_points[0].datetime,
+        end=window_points[-1].datetime + timedelta(hours=1),
+        average=sum(point.value for point in window_points) / len(window_points),
+        points=window_points,
+    )
+    lookahead_limit = now_utc + timedelta(hours=12)
+
+    coordinator.async_set_updated_data(
+        {
+            "price": {
+                "forecast": window_points,
+                "current": None,
+                "cheapest_windows": {3: window},
+                "cheapest_windows_meta": {
+                    "lookahead_hours": 12,
+                    "lookahead_limit": lookahead_limit,
+                    "start_hour": 0,
+                    "end_hour": 23,
+                },
+                "now": now_utc,
+                "forecast_start": window_points[0].datetime,
+                CUSTOM_WINDOW_KEY: {
+                    "window": None,
+                    "hours": 3,
+                    "start_hour": 0,
+                    "end_hour": 23,
+                    "lookahead_hours": 12,
+                    "lookahead_limit": lookahead_limit,
+                },
+                "daily_averages": [],
+            },
+            "windpower": None,
+            "narration": {},
+        }
+    )
+
+    window_sensor = sensor.NordpoolCheapestWindowSensor(coordinator, entry, 3)
+    assert window_sensor.native_value == pytest.approx(round(window.average, 1))
+    attrs = window_sensor.extra_state_attributes
+    assert attrs[ATTR_WINDOW_START].endswith("+03:00")
+    assert attrs[ATTR_WINDOW_END].endswith("+02:00")
+    assert len(attrs[ATTR_WINDOW_POINTS]) == 3
+    assert attrs[ATTR_WINDOW_POINTS][0]["timestamp"] == window_points[0].datetime.isoformat()
+    assert attrs[ATTR_WINDOW_POINTS][1]["timestamp"] == window_points[1].datetime.isoformat()
+
+
+@pytest.mark.asyncio
 async def test_price_entities_apply_extra_fees(hass, enable_custom_integrations) -> None:
     entry = MockConfigEntry(
         domain=DOMAIN,
