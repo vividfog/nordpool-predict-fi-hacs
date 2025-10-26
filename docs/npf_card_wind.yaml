@@ -85,7 +85,7 @@ series:
     yaxis_id: price
     float_precision: 1
     color: dimgray
-    opacity: 0.33
+    opacity: 0.16
     extend_to: now
     stroke_width: 0
     data_generator: |
