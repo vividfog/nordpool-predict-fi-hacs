@@ -18,31 +18,31 @@ Manual card snippets live in docs — see [`docs/README.md`](docs/README.md) for
 
 [`npf_card_summary_fi.yaml`](docs/npf_card_summary_fi.yaml) and [`npf_card_summary_en.yaml`](docs/npf_card_summary_en.yaml) surface the short-form narrations; pair them with the full Markdown versions (`npf_card_narration_fi.yaml`, `npf_card_narration_en.yaml`) for longer notes.
 
-<img src="docs/npf_card_summary_fi@2x.jpeg" alt="Button Card showing the Finnish daily summary with price highlights" width="480">
+<img src="https://raw.githubusercontent.com/vividfog/nordpool-predict-fi-hacs/main/docs/npf_card_summary_fi@2x.jpeg" alt="Button Card showing the Finnish daily summary with price highlights" width="480">
 
 ### Price vs. Wind Outlook
 
 [`npf_card_price.yaml`](docs/npf_card_price.yaml) combines realized + forecast prices with wind production so you can spot when generation pulls prices down.
 
-<img src="docs/npf_card_price@2x.jpeg" alt="ApexCharts price card showing realized prices, forecast, and wind overlay" height="320">
+<img src="https://raw.githubusercontent.com/vividfog/nordpool-predict-fi-hacs/main/docs/npf_card_price@2x.jpeg" alt="ApexCharts price card showing realized prices, forecast, and wind overlay" height="320">
 
 ### Wind Production Spotlight
 
 [`npf_card_wind.yaml`](docs/npf_card_wind.yaml) flips the perspective to wind-first while keeping the price trace available for context across the week.
 
-<img src="docs/npf_card_wind@2x.png" alt="ApexCharts wind card showing wind power focus with price overlay" height="320">
+<img src="https://raw.githubusercontent.com/vividfog/nordpool-predict-fi-hacs/main/docs/npf_card_wind@2x.png" alt="ApexCharts wind card showing wind power focus with price overlay" height="320">
 
 ### Cheapest Window Countdown
 
 [`npf_card_cheapest_countdown.yaml`](docs/npf_card_cheapest_countdown.yaml) presents the best 3 h, 6 h, and 12 h windows side by side, using Button Card to keep the layout compact.
 
-<img src="docs/npf_card_cheapest_countdown@2x.png" alt="Button Card table comparing cheapest 3h, 6h, and 12h price windows" height="192">
+<img src="https://raw.githubusercontent.com/vividfog/nordpool-predict-fi-hacs/main/docs/npf_card_cheapest_countdown@2x.png" alt="Button Card table comparing cheapest 3h, 6h, and 12h price windows" height="192">
 
 ### Hourly Price Calendar
 
 [`npf_card_price_calendar_plotly.yaml`](docs/npf_card_price_calendar_plotly.yaml) turns the forecast into a day-by-day heatmap where columns are hours and rows are Helsinki dates. Greens mark the cheapest hours, while warmer tones flag rising prices.
 
-<img src="docs/npf_card_price_calendar_plotly@2x.png" alt="Plotly heatmap showing the hourly price calendar" height="480">
+<img src="https://raw.githubusercontent.com/vividfog/nordpool-predict-fi-hacs/main/docs/npf_card_price_calendar_plotly@2x.png" alt="Plotly heatmap showing the hourly price calendar" height="480">
 
 ### Daily Price Averages
 
