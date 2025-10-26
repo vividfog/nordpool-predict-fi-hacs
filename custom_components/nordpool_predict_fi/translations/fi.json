@@ -40,78 +40,87 @@
   },
   "entity": {
     "sensor": {
-      "nordpool_predict_fi__price": {
+      "price": {
         "name": "Hinta"
       },
-      "nordpool_predict_fi__windpower": {
+      "windpower": {
         "name": "Tuulivoima"
       },
-      "nordpool_predict_fi__cheapest_3h": {
+      "cheapest_3h": {
         "name": "Edullisin 3h hintajakso"
       },
-      "nordpool_predict_fi__cheapest_6h": {
+      "cheapest_3h_active": {
+        "name": "Edullisin 3h jakso käynnissä"
+      },
+      "cheapest_6h": {
         "name": "Edullisin 6h hintajakso"
       },
-      "nordpool_predict_fi__cheapest_12h": {
+      "cheapest_6h_active": {
+        "name": "Edullisin 6h jakso käynnissä"
+      },
+      "cheapest_12h": {
         "name": "Edullisin 12h hintajakso"
       },
-      "nordpool_predict_fi__cheapest_custom": {
+      "cheapest_12h_active": {
+        "name": "Edullisin 12h jakso käynnissä"
+      },
+      "cheapest_custom": {
         "name": "Edullisin oma hintajakso"
       },
-      "nordpool_predict_fi__cheapest_custom_active": {
+      "cheapest_custom_active": {
         "name": "Oma hintajakso käynnissä"
       },
-      "nordpool_predict_fi__price_now": {
+      "price_now": {
         "name": "Hinta nyt"
       },
-      "nordpool_predict_fi__price_daily_average": {
+      "price_daily_average": {
         "name": "Päivän keskihinta"
       },
-      "nordpool_predict_fi__price_next_1h": {
+      "price_next_1h": {
         "name": "Keskiarvohinta 1h"
       },
-      "nordpool_predict_fi__price_next_3h": {
+      "price_next_3h": {
         "name": "Keskiarvohinta 3h"
       },
-      "nordpool_predict_fi__price_next_6h": {
+      "price_next_6h": {
         "name": "Keskiarvohinta 6h"
       },
-      "nordpool_predict_fi__price_next_12h": {
+      "price_next_12h": {
         "name": "Keskiarvohinta 12h"
       },
-      "nordpool_predict_fi__windpower_now": {
+      "windpower_now": {
         "name": "Tuulivoima nyt"
       },
-      "nordpool_predict_fi__narration_fi": {
+      "narration_fi": {
         "name": "Narration (FI)"
       },
-      "nordpool_predict_fi__narration_en": {
+      "narration_en": {
         "name": "Narration (EN)"
       }
     },
     "number": {
-      "nordpool_predict_fi__extra_fees": {
+      "extra_fees": {
         "name": "Lisämaksu"
       },
-      "nordpool_predict_fi__custom_window_hours": {
+      "custom_window_hours": {
         "name": "Oman jakson tunnit"
       },
-      "nordpool_predict_fi__custom_window_start_hour": {
+      "custom_window_start_hour": {
         "name": "Oman jakson aloitustunti"
       },
-      "nordpool_predict_fi__custom_window_end_hour": {
+      "custom_window_end_hour": {
         "name": "Oman jakson viimeinen tunti"
       },
-      "nordpool_predict_fi__custom_window_lookahead_hours": {
+      "custom_window_lookahead_hours": {
         "name": "Oman jakson ennakkotunnit"
       },
-      "nordpool_predict_fi__cheapest_window_lookahead_hours": {
+      "cheapest_window_lookahead_hours": {
         "name": "Halvimman jakson ennakkotunnit"
       },
-      "nordpool_predict_fi__cheapest_window_start_hour": {
+      "cheapest_window_start_hour": {
         "name": "Halvimman jakson aloitustunti"
       },
-      "nordpool_predict_fi__cheapest_window_end_hour": {
+      "cheapest_window_end_hour": {
         "name": "Halvimman jakson viimeinen tunti"
       }
     }

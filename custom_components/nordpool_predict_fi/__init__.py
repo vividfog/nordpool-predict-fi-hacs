@@ -8,8 +8,9 @@ from typing import Any
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
-from homeassistant.helpers.typing import ConfigType
 from homeassistant.helpers import entity_registry as er
+from homeassistant.helpers import config_validation as cv
+from homeassistant.helpers.typing import ConfigType
 
 from .const import (
     CONF_BASE_URL,
@@ -27,6 +28,8 @@ from .const import (
 from .coordinator import NordpoolPredictCoordinator
 
 type NordpoolConfigEntry = ConfigEntry
+
+CONFIG_SCHEMA = cv.empty_config_schema(DOMAIN)
 
 
 #region _bootstrap

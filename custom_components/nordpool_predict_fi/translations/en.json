@@ -40,78 +40,87 @@
   },
   "entity": {
     "sensor": {
-      "nordpool_predict_fi__price": {
+      "price": {
         "name": "Price"
       },
-      "nordpool_predict_fi__windpower": {
+      "windpower": {
         "name": "Wind Power"
       },
-      "nordpool_predict_fi__cheapest_3h": {
+      "cheapest_3h": {
         "name": "Cheapest 3h Price Window"
       },
-      "nordpool_predict_fi__cheapest_6h": {
+      "cheapest_3h_active": {
+        "name": "Cheapest 3h Window Active"
+      },
+      "cheapest_6h": {
         "name": "Cheapest 6h Price Window"
       },
-      "nordpool_predict_fi__cheapest_12h": {
+      "cheapest_6h_active": {
+        "name": "Cheapest 6h Window Active"
+      },
+      "cheapest_12h": {
         "name": "Cheapest 12h Price Window"
       },
-      "nordpool_predict_fi__cheapest_custom": {
+      "cheapest_12h_active": {
+        "name": "Cheapest 12h Window Active"
+      },
+      "cheapest_custom": {
         "name": "Cheapest Custom Price Window"
       },
-      "nordpool_predict_fi__cheapest_custom_active": {
+      "cheapest_custom_active": {
         "name": "Cheapest Custom Window Active"
       },
-      "nordpool_predict_fi__price_now": {
+      "price_now": {
         "name": "Price Now"
       },
-      "nordpool_predict_fi__price_daily_average": {
+      "price_daily_average": {
         "name": "Daily Average Price"
       },
-      "nordpool_predict_fi__price_next_1h": {
+      "price_next_1h": {
         "name": "Average Price Next 1h"
       },
-      "nordpool_predict_fi__price_next_3h": {
+      "price_next_3h": {
         "name": "Average Price Next 3h"
       },
-      "nordpool_predict_fi__price_next_6h": {
+      "price_next_6h": {
         "name": "Average Price Next 6h"
       },
-      "nordpool_predict_fi__price_next_12h": {
+      "price_next_12h": {
         "name": "Average Price Next 12h"
       },
-      "nordpool_predict_fi__windpower_now": {
+      "windpower_now": {
         "name": "Wind Power Now"
       },
-      "nordpool_predict_fi__narration_fi": {
+      "narration_fi": {
         "name": "Narration (FI)"
       },
-      "nordpool_predict_fi__narration_en": {
+      "narration_en": {
         "name": "Narration (EN)"
       }
     },
     "number": {
-      "nordpool_predict_fi__extra_fees": {
+      "extra_fees": {
         "name": "Extra Fees"
       },
-      "nordpool_predict_fi__custom_window_hours": {
+      "custom_window_hours": {
         "name": "Custom Window Hours"
       },
-      "nordpool_predict_fi__custom_window_start_hour": {
+      "custom_window_start_hour": {
         "name": "Custom Window Start Hour"
       },
-      "nordpool_predict_fi__custom_window_end_hour": {
+      "custom_window_end_hour": {
         "name": "Custom Window Last Hour"
       },
-      "nordpool_predict_fi__custom_window_lookahead_hours": {
+      "custom_window_lookahead_hours": {
         "name": "Custom Window Lookahead Hours"
       },
-      "nordpool_predict_fi__cheapest_window_lookahead_hours": {
+      "cheapest_window_lookahead_hours": {
         "name": "Cheapest Window Lookahead Hours"
       },
-      "nordpool_predict_fi__cheapest_window_start_hour": {
+      "cheapest_window_start_hour": {
         "name": "Cheapest Window Start Hour"
       },
-      "nordpool_predict_fi__cheapest_window_end_hour": {
+      "cheapest_window_end_hour": {
         "name": "Cheapest Window Last Hour"
       }
     }

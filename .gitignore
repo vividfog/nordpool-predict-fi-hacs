@@ -13,3 +13,4 @@ test-config/
 .envrc
 nordpool-predict-fi-hacs.code-workspace
 **/**egg-info
+.actrc
