@@ -10,6 +10,57 @@ All reported price states already include VAT.
 
 ---
 
+## Dashboard Cards
+
+Manual card snippets live in docs — see [`docs/README.md`](docs/README.md) for copy/paste steps. Install [ApexCharts Card](https://github.com/RomRider/apexcharts-card) (and Button Card for the table) before adding them to your dashboard.
+
+### Morning Briefing Summary
+
+[`npf_card_summary_fi.yaml`](docs/npf_card_summary_fi.yaml) and [`npf_card_summary_en.yaml`](docs/npf_card_summary_en.yaml) surface the short-form narrations; pair them with the full Markdown versions (`npf_card_narration_fi.yaml`, `npf_card_narration_en.yaml`) for longer notes.
+
+<img src="docs/npf_card_summary_fi@2x.jpeg" alt="Button Card showing the Finnish daily summary with price highlights" width="480">
+
+### Price vs. Wind Outlook
+
+[`npf_card_price.yaml`](docs/npf_card_price.yaml) combines realized + forecast prices with wind production so you can spot when generation pulls prices down.
+
+<img src="docs/npf_card_price@2x.jpeg" alt="ApexCharts price card showing realized prices, forecast, and wind overlay" height="320">
+
+### Wind Production Spotlight
+
+[`npf_card_wind.yaml`](docs/npf_card_wind.yaml) flips the perspective to wind-first while keeping the price trace available for context across the week.
+
+<img src="docs/npf_card_wind@2x.png" alt="ApexCharts wind card showing wind power focus with price overlay" height="320">
+
+### Cheapest Window Countdown
+
+[`npf_card_cheapest_countdown.yaml`](docs/npf_card_cheapest_countdown.yaml) presents the best 3 h, 6 h, and 12 h windows side by side, using Button Card to keep the layout compact.
+
+<img src="docs/npf_card_cheapest_countdown@2x.png" alt="Button Card table comparing cheapest 3h, 6h, and 12h price windows" height="192">
+
+### Hourly Price Calendar
+
+[`npf_card_price_calendar_plotly.yaml`](docs/npf_card_price_calendar_plotly.yaml) turns the forecast into a day-by-day heatmap where columns are hours and rows are Helsinki dates. Greens mark the cheapest hours, while warmer tones flag rising prices.
+
+<img src="docs/npf_card_price_calendar_plotly@2x.png" alt="Plotly heatmap showing the hourly price calendar" height="480">
+
+### Daily Price Averages
+
+[`npf_card_daily_averages_button-card.yaml`](docs/npf_card_daily_averages_button-card.yaml) offers a button-card table layout with weekday labels plus daily min/avg/max columns.
+
+[`npf_card_daily_averages_md.yaml`](docs/npf_card_daily_averages_md.yaml) renders a simple Markdown table of each Helsinki day with average, min, and max prices.
+
+---
+
+## Installation (HACS)
+
+1. Open HACS → Integrations → *Custom repositories* → add:
+  - `https://github.com/vividfog/nordpool-predict-fi-hacs`
+  - `Integration` category
+2. Install **Nordpool Predict FI** from HACS and restart Home Assistant.
+
+---
+
 ## Sensors
 
 | Entity | Type | Description |
@@ -45,57 +96,6 @@ All reported price states already include VAT.
 All timestamps are UTC ISO8601 strings; Home Assistant handles local conversion based on your instance settings.
 
 Narration sensors expose `language`, `summary` (state), `content` (full Markdown), and `source_url` attributes.
-
----
-
-## Dashboard Cards
-
-Manual card snippets live in docs — see [`docs/README.md`](docs/README.md) for copy/paste steps. Install [ApexCharts Card](https://github.com/RomRider/apexcharts-card) (and Button Card for the table) before adding them to your dashboard.
-
-### Morning Briefing Summary
-
-[`npf_card_summary_fi.yaml`](docs/npf_card_summary_fi.yaml) and [`npf_card_summary_en.yaml`](docs/npf_card_summary_en.yaml) surface the short-form narrations; pair them with the full Markdown versions (`npf_card_narration_fi.yaml`, `npf_card_narration_en.yaml`) for longer notes.
-
-<img src="docs/npf_card_summary_fi.jpeg" alt="Button Card showing the Finnish daily summary with price highlights" width="800">
-
-### Daily Price Averages
-
-[`npf_card_daily_averages_button-card.yaml`](docs/npf_card_daily_averages_button-card.yaml) offers a button-card table layout with weekday labels plus daily min/avg/max columns.
-
-[`npf_card_daily_averages_md.yaml`](docs/npf_card_daily_averages_md.yaml) renders a simple Markdown table of each Helsinki day with average, min, and max prices.
-
-### Price vs. Wind Outlook
-
-[`npf_card_price.yaml`](docs/npf_card_price.yaml) combines realized + forecast prices with wind production so you can spot when generation pulls prices down.
-
-<img src="docs/npf_card_price@2x.jpeg" alt="ApexCharts price card showing realized prices, forecast, and wind overlay" height="320">
-
-### Wind Production Spotlight
-
-[`npf_card_wind.yaml`](docs/npf_card_wind.yaml) flips the perspective to wind-first while keeping the price trace available for context across the week.
-
-<img src="docs/npf_card_wind@2x.png" alt="ApexCharts wind card showing wind power focus with price overlay" height="320">
-
-### Cheapest Window Countdown
-
-[`npf_card_cheapest_countdown.yaml`](docs/npf_card_cheapest_countdown.yaml) presents the best 3 h, 6 h, and 12 h windows side by side, using Button Card to keep the layout compact.
-
-<img src="docs/npf_card_cheapest_countdown@2x.png" alt="Button Card table comparing cheapest 3h, 6h, and 12h price windows" height="192">
-
-### Hourly Price Calendar
-
-[`npf_card_price_calendar_plotly.yaml`](docs/npf_card_price_calendar_plotly.yaml) turns the forecast into a day-by-day heatmap where columns are hours and rows are Helsinki dates. Greens mark the cheapest hours, while warmer tones flag rising prices.
-
-<img src="docs/npf_card_price_calendar_plotly@2x.png" alt="Plotly heatmap showing the hourly price calendar" height="480">
-
----
-
-## Installation (HACS)
-
-1. Open HACS → Integrations → *Custom repositories* → add:
-  - `https://github.com/vividfog/nordpool-predict-fi-hacs`
-  - `Integration` category
-2. Install **Nordpool Predict FI** from HACS and restart Home Assistant.
 
 ---
 
