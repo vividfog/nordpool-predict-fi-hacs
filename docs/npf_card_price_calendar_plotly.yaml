@@ -1,0 +1,492 @@
+# Requires Plotly Graph Card via HACS (dbuezas/lovelace-plotly-graph-card).
+type: custom:plotly-graph
+title: Tuntihintakalenteri
+raw_plotly_config: true
+config:
+  displayModeBar: false
+  scrollZoom: false
+disable_pinch_to_zoom: true
+entities:
+  - entity: sensor.nordpool_predict_fi_price
+    internal: true
+    fn: |
+      $ex {
+        const HOUR_MS = 60 * 60 * 1000;
+        const DAY_MS = 24 * HOUR_MS;
+        const MAX_DAY_SLOTS = 27;
+        const HELSINKI_TZ = 'Europe/Helsinki';
+
+        const entries = Array.isArray(meta.forecast) ? meta.forecast : [];
+        if (!entries.length) {
+          vars.npfCalendar = null;
+          return;
+        }
+
+        const priceMap = new Map();
+        for (const item of entries) {
+          const ts = Date.parse(item.timestamp);
+          const value = Number(item.value);
+          if (!Number.isFinite(ts) || !Number.isFinite(value)) {
+            continue;
+          }
+          const aligned = Math.floor(ts / HOUR_MS) * HOUR_MS;
+          if (!priceMap.has(aligned)) {
+            priceMap.set(aligned, value);
+          }
+        }
+
+        if (!priceMap.size) {
+          vars.npfCalendar = null;
+          return;
+        }
+
+        const dtfCache = new Map();
+        const getFormatter = (locale, options) => {
+          const key = `${locale}:${JSON.stringify(options)}`;
+          if (!dtfCache.has(key)) {
+            dtfCache.set(
+              key,
+              new Intl.DateTimeFormat(
+                locale,
+                Object.assign({ timeZone: HELSINKI_TZ, hour12: false }, options)
+              )
+            );
+          }
+          return dtfCache.get(key);
+        };
+
+        const getLocalParts = (timestamp) => {
+          const formatter = getFormatter('en-US', {
+            year: 'numeric',
+            month: '2-digit',
+            day: '2-digit',
+            hour: '2-digit',
+            minute: '2-digit',
+            second: '2-digit'
+          });
+          const parts = formatter.formatToParts(new Date(timestamp));
+          const bucket = {};
+          for (const part of parts) {
+            if (part.type !== 'literal') {
+              bucket[part.type] = Number(part.value);
+            }
+          }
+          return {
+            year: bucket.year,
+            month: bucket.month,
+            day: bucket.day,
+            hour: bucket.hour,
+            minute: bucket.minute,
+            second: bucket.second
+          };
+        };
+
+        const matchesLocal = (parts, target) =>
+          Number.isFinite(parts.year) && parts.year === target.year &&
+          Number.isFinite(parts.month) && parts.month === target.month &&
+          Number.isFinite(parts.day) && parts.day === target.day &&
+          Number.isFinite(parts.hour) && parts.hour === target.hour &&
+          Number.isFinite(parts.minute) && parts.minute === target.minute &&
+          Number.isFinite(parts.second) && parts.second === target.second;
+
+        const zonedTimeToUtc = (components) => {
+          const { year, month, day, hour = 0, minute = 0, second = 0 } = components;
+          if (![year, month, day, hour, minute, second].every(Number.isFinite)) {
+            return NaN;
+          }
+          const naiveUtc = Date.UTC(year, month - 1, day, hour, minute, second);
+          const localParts = getLocalParts(naiveUtc);
+          const localUtcEstimate = Date.UTC(
+            Number.isFinite(localParts.year) ? localParts.year : year,
+            Number.isFinite(localParts.month) ? localParts.month - 1 : month - 1,
+            Number.isFinite(localParts.day) ? localParts.day : day,
+            Number.isFinite(localParts.hour) ? localParts.hour : hour,
+            Number.isFinite(localParts.minute) ? localParts.minute : minute,
+            Number.isFinite(localParts.second) ? localParts.second : second
+          );
+          let candidate = naiveUtc + (naiveUtc - localUtcEstimate);
+          let resolved = getLocalParts(candidate);
+          if (matchesLocal(resolved, { year, month, day, hour, minute, second })) {
+            return candidate;
+          }
+          const adjustments = [-HOUR_MS, HOUR_MS, -2 * HOUR_MS, 2 * HOUR_MS];
+          for (const delta of adjustments) {
+            const attempt = candidate + delta;
+            resolved = getLocalParts(attempt);
+            if (matchesLocal(resolved, { year, month, day, hour, minute, second })) {
+              return attempt;
+            }
+          }
+          return NaN;
+        };
+
+        const padHour = (hour) => {
+          const numeric = Number(hour);
+          if (!Number.isFinite(numeric)) {
+            return '';
+          }
+          return numeric < 10 ? `0${numeric}` : String(numeric);
+        };
+
+        const formatWithColonSeparator = (formatter, date) => {
+          if (!formatter || typeof formatter.formatToParts !== 'function') {
+            return typeof formatter?.format === 'function' ? formatter.format(date) : '';
+          }
+          const parts = formatter.formatToParts(date);
+          let result = '';
+          let awaitingMinute = false;
+          for (let i = 0; i < parts.length; i++) {
+            const part = parts[i];
+            if (part.type === 'hour') {
+              awaitingMinute = true;
+              result += part.value;
+              continue;
+            }
+            if (part.type === 'literal' && awaitingMinute) {
+              const next = parts[i + 1];
+              if (next && next.type === 'minute') {
+                result += ':';
+                continue;
+              }
+            }
+            result += part.value;
+            if (part.type === 'minute') {
+              awaitingMinute = false;
+            }
+          }
+          return result;
+        };
+
+        const language = (hass?.locale?.language || hass?.language || 'en').toLowerCase();
+        const localeTag = language.startsWith('fi') ? 'fi-FI' : 'en-GB';
+        const hourLabels = Array.from({ length: 24 }, (_, hour) => padHour(hour));
+
+        const anchorMs = Math.floor(Date.now() / HOUR_MS) * HOUR_MS;
+        const anchorParts = getLocalParts(anchorMs);
+        if (!Number.isFinite(anchorParts?.year)) {
+          vars.npfCalendar = null;
+          return;
+        }
+
+        const baseDayUtc = zonedTimeToUtc({
+          year: anchorParts.year,
+          month: anchorParts.month,
+          day: anchorParts.day,
+          hour: 0,
+          minute: 0,
+          second: 0
+        });
+        if (!Number.isFinite(baseDayUtc)) {
+          vars.npfCalendar = null;
+          return;
+        }
+
+        let latestTimestamp = NaN;
+        for (const key of priceMap.keys()) {
+          const numericKey = Number(key);
+          if (!Number.isFinite(numericKey)) {
+            continue;
+          }
+          if (!Number.isFinite(latestTimestamp) || numericKey > latestTimestamp) {
+            latestTimestamp = numericKey;
+          }
+        }
+        if (!Number.isFinite(latestTimestamp)) {
+          vars.npfCalendar = null;
+          return;
+        }
+
+        const latestParts = getLocalParts(latestTimestamp);
+        if (!Number.isFinite(latestParts?.year)) {
+          vars.npfCalendar = null;
+          return;
+        }
+
+        const latestDayUtc = zonedTimeToUtc({
+          year: latestParts.year,
+          month: latestParts.month,
+          day: latestParts.day,
+          hour: 0,
+          minute: 0,
+          second: 0
+        });
+        if (!Number.isFinite(latestDayUtc)) {
+          vars.npfCalendar = null;
+          return;
+        }
+
+        let daysVisible = 1;
+        if (latestDayUtc >= baseDayUtc) {
+          const diff = Math.round((latestDayUtc - baseDayUtc) / DAY_MS);
+          if (Number.isFinite(diff) && diff >= 0) {
+            daysVisible = diff + 1;
+          }
+        }
+
+        const collectDaySlots = (year, month, day) => {
+          const dayStartUtc = zonedTimeToUtc({ year, month, day, hour: 0 });
+          if (!Number.isFinite(dayStartUtc)) {
+            return { slotsByHour: new Map(), dayStartUtc: NaN };
+          }
+          const slotsByHour = new Map();
+          let cursor = dayStartUtc;
+          for (let idx = 0; idx < MAX_DAY_SLOTS; idx++) {
+            const parts = getLocalParts(cursor);
+            if (!Number.isFinite(parts.year) || parts.year !== year ||
+                !Number.isFinite(parts.month) || parts.month !== month ||
+                !Number.isFinite(parts.day) || parts.day !== day) {
+              break;
+            }
+            const hour = parts.hour;
+            if (!slotsByHour.has(hour)) {
+              slotsByHour.set(hour, []);
+            }
+            slotsByHour.get(hour).push({ timestamp: cursor });
+            cursor += HOUR_MS;
+          }
+          return { slotsByHour, dayStartUtc };
+        };
+
+        const dayFormatter = getFormatter(localeTag, {
+          weekday: 'short',
+          month: 'short',
+          day: 'numeric'
+        });
+        const tooltipFormatter = getFormatter(localeTag, {
+          weekday: 'long',
+          month: 'short',
+          day: 'numeric',
+          hour: '2-digit',
+          minute: '2-digit'
+        });
+        const tzFormatter = getFormatter(localeTag, {
+          hour: '2-digit',
+          minute: '2-digit',
+          timeZoneName: 'short'
+        });
+        const tooltipNumberFormatter = new Intl.NumberFormat(localeTag, {
+          minimumFractionDigits: 1,
+          maximumFractionDigits: 1
+        });
+
+        const bands = [
+          { min: -Infinity, max: 5, color: 'lime' },
+          { min: 5, max: 10, color: 'limegreen' },
+          { min: 10, max: 15, color: 'gold' },
+          { min: 15, max: 20, color: 'darkorange' },
+          { min: 20, max: 30, color: 'red' },
+          { min: 30, max: Infinity, color: 'darkred' }
+        ];
+
+        const formatLegendLabel = (band) => {
+          const numberFormatter = new Intl.NumberFormat(localeTag, {
+            minimumFractionDigits: 0,
+            maximumFractionDigits: 1
+          });
+          const minFinite = Number.isFinite(band.min) ? band.min : null;
+          const maxFinite = Number.isFinite(band.max) ? band.max : null;
+          const unit = '¢/kWh';
+          if (minFinite === null && maxFinite === null) {
+            return '';
+          }
+          if (minFinite === null && maxFinite !== null) {
+            return `≤ ${numberFormatter.format(maxFinite)} ${unit}`;
+          }
+          if (minFinite !== null && maxFinite === null) {
+            return `> ${numberFormatter.format(minFinite)} ${unit}`;
+          }
+          return `${numberFormatter.format(minFinite)} – ${numberFormatter.format(maxFinite)} ${unit}`;
+        };
+
+        const resolveBandIndex = (value) => {
+          if (!Number.isFinite(value)) {
+            return null;
+          }
+          for (let index = 0; index < bands.length; index++) {
+            const band = bands[index];
+            const lowerOk = value >= (Number.isFinite(band.min) ? band.min : -Infinity);
+            const upperOk = value <= (Number.isFinite(band.max) ? band.max : Infinity);
+            if (lowerOk && upperOk) {
+              return index;
+            }
+          }
+          return bands.length - 1;
+        };
+
+        const formatTooltip = (timestamp, price, detail) => {
+          if (!Number.isFinite(timestamp) || !Number.isFinite(price)) {
+            return '';
+          }
+          const stamp = formatWithColonSeparator(tooltipFormatter, new Date(timestamp));
+          let tooltip = `${stamp}<br>${tooltipNumberFormatter.format(price)} ¢/kWh`;
+          if (Array.isArray(detail) && detail.length > 1) {
+            detail
+              .slice()
+              .sort((a, b) => a.timestamp - b.timestamp)
+              .forEach(entry => {
+                if (!Number.isFinite(entry.timestamp) || !Number.isFinite(entry.price)) {
+                  return;
+                }
+                if (entry.timestamp === timestamp) {
+                  return;
+                }
+                const label = formatWithColonSeparator(
+                  tzFormatter,
+                  new Date(entry.timestamp)
+                );
+                tooltip += `<br>${label}: ${tooltipNumberFormatter.format(entry.price)} ¢/kWh`;
+              });
+          }
+          return tooltip;
+        };
+
+        const dayLabels = [];
+        const zValues = [];
+        const hoverText = [];
+
+        const baseDate = new Date(Date.UTC(anchorParts.year, anchorParts.month - 1, anchorParts.day));
+
+        for (let dayOffset = 0; dayOffset < daysVisible; dayOffset++) {
+          const dayCandidate = new Date(baseDate);
+          dayCandidate.setUTCDate(baseDate.getUTCDate() + dayOffset);
+          const year = dayCandidate.getUTCFullYear();
+          const month = dayCandidate.getUTCMonth() + 1;
+          const day = dayCandidate.getUTCDate();
+
+          const { slotsByHour, dayStartUtc } = collectDaySlots(year, month, day);
+          const labelTimestamp = Number.isFinite(dayStartUtc)
+            ? dayStartUtc
+            : Date.UTC(year, month - 1, day);
+          dayLabels.push(dayFormatter.format(new Date(labelTimestamp)));
+
+          const row = [];
+          const rowText = [];
+
+          hourLabels.forEach((label) => {
+            const hour = Number.parseInt(label, 10);
+            const occurrences = Number.isFinite(hour) ? (slotsByHour.get(hour) || []) : [];
+            const enriched = occurrences.map(entry => {
+              const aligned = Math.floor(entry.timestamp / HOUR_MS) * HOUR_MS;
+              return {
+                timestamp: entry.timestamp,
+                price: priceMap.get(aligned)
+              };
+            }).filter(entry => Number.isFinite(entry.price));
+
+            const primary = enriched.length ? enriched[enriched.length - 1] : undefined;
+            const timestamp = primary ? primary.timestamp : (occurrences[0]?.timestamp ?? NaN);
+            const aligned = Number.isFinite(timestamp) ? Math.floor(timestamp / HOUR_MS) * HOUR_MS : NaN;
+            const isPastHour = Number.isFinite(aligned) && aligned < anchorMs;
+            const price = !isPastHour && primary ? primary.price : null;
+            const bandIndex = resolveBandIndex(price);
+            const hasPrice = typeof price === 'number' && Number.isFinite(price);
+            row.push(Number.isInteger(bandIndex) && hasPrice ? bandIndex : null);
+            rowText.push(hasPrice ? formatTooltip(timestamp, price, enriched) : '');
+          });
+
+          zValues.push(row);
+          hoverText.push(rowText);
+        }
+
+        const epsilon = bands.length ? 1 / (bands.length * 100) : 0.01;
+        const colorscale = [];
+        if (bands.length === 1) {
+          colorscale.push([0, bands[0].color], [1, bands[0].color]);
+        } else if (bands.length > 1) {
+          bands.forEach((band, index) => {
+            const start = index / bands.length;
+            const end = (index + 1) / bands.length;
+            colorscale.push([start, band.color]);
+            colorscale.push([Math.max(start, end - epsilon), band.color]);
+            if (index === bands.length - 1) {
+              colorscale.push([1, band.color]);
+            }
+          });
+        }
+
+        vars.npfCalendar = {
+          hours: hourLabels,
+          days: dayLabels,
+          z: zValues,
+          text: hoverText,
+          colorscale,
+          tickvals: bands.map((_, index) => index),
+          ticktext: bands.map(formatLegendLabel)
+        };
+      }
+  - entity: sensor.nordpool_predict_fi_price
+    showlegend: false
+    name: ''
+    type: heatmap
+    hovertemplate: '%{text}<extra></extra>'
+    hoverongaps: false
+    showscale: true
+    x: |
+      $ex vars.npfCalendar && vars.npfCalendar.hours.length
+        ? vars.npfCalendar.hours
+        : ['']
+    y: |
+      $ex vars.npfCalendar && vars.npfCalendar.days.length
+        ? vars.npfCalendar.days
+        : ['']
+    z: |
+      $ex vars.npfCalendar && vars.npfCalendar.z.length
+        ? vars.npfCalendar.z
+        : [[null]]
+    text: |
+      $ex vars.npfCalendar && vars.npfCalendar.text.length
+        ? vars.npfCalendar.text
+        : [['']]
+    colorscale: |
+      $ex vars.npfCalendar && vars.npfCalendar.colorscale.length
+        ? vars.npfCalendar.colorscale
+        : [[0, 'rgba(31,35,40,0.12)'], [1, 'rgba(31,35,40,0.12)']]
+    zmin: -0.5
+    zmax: 5.5
+    xgap: 2
+    ygap: 2
+    colorbar:
+      tickmode: array
+      tickvals: |
+        $ex vars.npfCalendar ? vars.npfCalendar.tickvals : []
+      ticktext: |
+        $ex vars.npfCalendar ? vars.npfCalendar.ticktext : []
+      thickness: 16
+      lenmode: fraction
+      len: 0.92
+      outlinewidth: 0
+      ticks: ''
+      tickfont:
+        size: 12
+layout:
+  margin:
+    t: 32
+    r: 72
+    b: 40
+    l: 64
+  height: 420
+  dragmode: false
+  hovermode: closest
+  paper_bgcolor: $ex css_vars['card-background-color'] || '#ffffff'
+  plot_bgcolor: $ex css_vars['card-background-color'] || '#ffffff'
+  xaxis:
+    type: category
+    side: top
+    tickfont:
+      size: 12
+      color: rgba(31, 35, 40, 0.72)
+    showgrid: false
+    zeroline: false
+    ticks: ''
+    showline: false
+  yaxis:
+    type: category
+    autorange: reversed
+    automargin: true
+    tickfont:
+      size: 12
+      color: rgba(31, 35, 40, 0.72)
+    showgrid: false
+    zeroline: false
+    ticks: ''
+    showline: false

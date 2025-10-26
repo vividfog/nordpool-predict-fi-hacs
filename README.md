@@ -82,6 +82,12 @@ Manual card snippets live in docs — see [`docs/README.md`](docs/README.md) for
 
 ![Button Card table comparing cheapest 3h, 6h, and 12h price windows](docs/npf_card_cheapest_countdown.png)
 
+### Hourly Price Calendar
+
+[`npf_card_price_calendar_plotly.yaml`](docs/npf_card_price_calendar_plotly.yaml) turns the forecast into a day-by-day heatmap where columns are hours and rows are Helsinki dates. Greens mark the cheapest hours, while warmer tones flag rising prices.
+
+![Plotly heatmap showing the hourly price calendar](docs/npf_card_price_calendar_plotly.png)
+
 ---
 
 ## Installation (HACS)

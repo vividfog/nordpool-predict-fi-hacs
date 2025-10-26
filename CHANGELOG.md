@@ -8,6 +8,7 @@ All notable changes to this project are documented here. This project follows th
 
 ### Added
 - Regression coverage for fall-back and spring-forward scenarios across price-now, next-hour, wind, and cheapest window sensors.
+- Plotly calendar heatmap card (`docs/npf_card_price_calendar_plotly.yaml`) that mirrors the web hourly calendar via the Plotly Graph Card.
 
 ## 2025-10-24
 ### Fixed
