@@ -474,7 +474,6 @@ layout:
     side: top
     tickfont:
       size: 12
-      color: rgba(31, 35, 40, 0.72)
     showgrid: false
     zeroline: false
     ticks: ''
@@ -485,7 +484,6 @@ layout:
     automargin: true
     tickfont:
       size: 12
-      color: rgba(31, 35, 40, 0.72)
     showgrid: false
     zeroline: false
     ticks: ''
