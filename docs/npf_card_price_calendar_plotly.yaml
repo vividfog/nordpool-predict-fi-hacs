@@ -464,7 +464,7 @@ layout:
     r: 72
     b: 40
     l: 64
-  height: 420
+  height: 256
   dragmode: false
   hovermode: closest
   paper_bgcolor: $ex css_vars['card-background-color'] || '#ffffff'
