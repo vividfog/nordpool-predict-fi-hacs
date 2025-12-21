@@ -11,7 +11,14 @@ from homeassistant.core import callback
 from homeassistant.data_entry_flow import FlowResult
 from homeassistant.helpers import config_validation as cv
 
-from .const import CONF_BASE_URL, CONF_UPDATE_INTERVAL, DEFAULT_BASE_URL, DEFAULT_UPDATE_INTERVAL_MINUTES, DOMAIN
+from .const import (
+    CONF_BASE_URL,
+    CONF_EXTRA_FEES_TEMPLATE,
+    CONF_UPDATE_INTERVAL,
+    DEFAULT_BASE_URL,
+    DEFAULT_UPDATE_INTERVAL_MINUTES,
+    DOMAIN,
+)
 
 
 #region _flow
@@ -107,6 +114,10 @@ def _form_schema(defaults: Mapping[str, Any] | None = None) -> vol.Schema:
                 CONF_UPDATE_INTERVAL,
                 default=defaults.get(CONF_UPDATE_INTERVAL, DEFAULT_UPDATE_INTERVAL_MINUTES),
             ): vol.All(vol.Coerce(int), vol.Range(min=1, max=720)),
+            vol.Optional(
+                CONF_EXTRA_FEES_TEMPLATE,
+                default=defaults.get(CONF_EXTRA_FEES_TEMPLATE, ""),
+            ): str,
         }
     )
 
@@ -118,6 +129,7 @@ def _entry_to_defaults(entry: config_entries.ConfigEntry) -> dict[str, Any]:
     return {
         CONF_BASE_URL: combined.get(CONF_BASE_URL, DEFAULT_BASE_URL),
         CONF_UPDATE_INTERVAL: combined.get(CONF_UPDATE_INTERVAL, DEFAULT_UPDATE_INTERVAL_MINUTES),
+        CONF_EXTRA_FEES_TEMPLATE: combined.get(CONF_EXTRA_FEES_TEMPLATE, ""),
     }
 
 
@@ -137,5 +149,15 @@ def _validate_user_input(user_input: Mapping[str, Any]) -> tuple[dict[str, Any],
             data[CONF_BASE_URL] = raw_url
         else:
             data[CONF_BASE_URL] = validated.rstrip("/")
+
+    raw_template = str(data.get(CONF_EXTRA_FEES_TEMPLATE, "") or "").strip()
+    if raw_template:
+        try:
+            cv.template(raw_template)
+        except vol.Invalid:
+            errors[CONF_EXTRA_FEES_TEMPLATE] = "invalid_template"
+        data[CONF_EXTRA_FEES_TEMPLATE] = raw_template
+    else:
+        data[CONF_EXTRA_FEES_TEMPLATE] = ""
 
     return data, errors

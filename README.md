@@ -107,6 +107,8 @@ During setup (or later via *Configure*) you can tweak:
 
 - **Base URL** – defaults to `https://raw.githubusercontent.com/vividfog/nordpool-predict-fi/main/deploy`. Point it to another host if you mirror the files.
 - **Update interval** – polling frequency in minutes (1–720, default 30).
+- **Extra fees template (optional)** – Jinja template that returns a numeric extra fee in `c/kWh` for a given hour. When set, it overrides the constant `number.nordpool_predict_fi_extra_fees` value.
+  - Available variables: `time` (Helsinki local datetime), `utc_time` (UTC datetime), `hour` (0–23, Helsinki local), `price` (base price in `c/kWh`).
 
 The host needs tzdata with the `Europe/Helsinki` zone. If that package is missing the coordinator raises an error in the Home Assistant logs.
 
@@ -115,7 +117,7 @@ The host needs tzdata with the `Europe/Helsinki` zone. If that package is missin
 ## Working With the Data
 
 - All data (price forecasts, wind power, and realized prices) is shown from beginning of today (Helsinki time) onwards.
-- The dedicated extra fees number lets you overlay grid fees or markups in cents per kWh; the value is reflected in price sensor states, cheapest windows, and their `extra_fees` attributes.
+- Extra fees can be applied either as a constant (via `number.nordpool_predict_fi_extra_fees`) or as a time-dependent Jinja template (via the config entry option). The effective fee is reflected in price sensor states, next-hour averages, daily averages, and cheapest window outputs.
 - Daily averages sensor keeps a running list of full Helsinki days (00:00-23:00) with their averaged prices and the underlying hourly points for dashboard tables or charts.
 - Sähkötin CSV data for the current Helsinki day is merged with Nordpool Predict FI forecasts, so the `forecast` attribute already contains realized + predicted prices in one timeline.
 - The price sensor also exposes `forecast_start`, the first forecast hour after realized data, so dashboards can mark where predictions kick in.
