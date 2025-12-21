@@ -7,7 +7,8 @@
         "description": "Visa Nordpool Predict FI-prognoser i Home Assistant.",
         "data": {
           "base_url": "Bas-URL",
-          "update_interval": "Uppdateringsintervall (minuter)"
+          "update_interval": "Uppdateringsintervall (minuter)",
+          "extra_fees_template": "Mall för extra avgifter (c/kWh)"
         }
       },
       "reconfigure": {
@@ -15,12 +16,14 @@
         "description": "Kontrollera anslutningsuppgifter eller uppdatera inställningar.",
         "data": {
           "base_url": "Bas-URL",
-          "update_interval": "Uppdateringsintervall (minuter)"
+          "update_interval": "Uppdateringsintervall (minuter)",
+          "extra_fees_template": "Mall för extra avgifter (c/kWh)"
         }
       }
     },
     "error": {
-      "invalid_url": "Bas-URL måste vara en giltig URL"
+      "invalid_url": "Bas-URL måste vara en giltig URL",
+      "invalid_template": "Mallen för extra avgifter måste vara en giltig Jinja-mall"
     }
   },
   "options": {
@@ -30,12 +33,14 @@
         "description": "Justera uppdateringsintervall eller bas-URL.",
         "data": {
           "base_url": "Bas-URL",
-          "update_interval": "Uppdateringsintervall (minuter)"
+          "update_interval": "Uppdateringsintervall (minuter)",
+          "extra_fees_template": "Mall för extra avgifter (c/kWh)"
         }
       }
     },
     "error": {
-      "invalid_url": "Bas-URL måste vara en giltig URL"
+      "invalid_url": "Bas-URL måste vara en giltig URL",
+      "invalid_template": "Mallen för extra avgifter måste vara en giltig Jinja-mall"
     }
   },
   "entity": {

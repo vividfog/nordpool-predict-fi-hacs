@@ -118,6 +118,36 @@ async def test_coordinator_parses_series(hass, enable_custom_integrations, monke
     assert price_section["forecast_start"] == datetime(2024, 1, 1, 13, 0, tzinfo=timezone.utc)
     assert price_section["forecast"][0].datetime == datetime(2024, 1, 1, 0, 0, tzinfo=timezone.utc)
     assert price_section["forecast"][0].value == pytest.approx(5.0)
+
+
+@pytest.mark.asyncio
+async def test_extra_fees_template_affects_cheapest_window_selection(hass, enable_custom_integrations) -> None:
+    helsinki = ZoneInfo("Europe/Helsinki")
+
+    coordinator = NordpoolPredictCoordinator(
+        hass=hass,
+        entry_id="test",
+        base_url="https://example.com/deploy",
+        update_interval=timedelta(minutes=15),
+        extra_fees_template="{{ 5 if time.hour >= 2 else 0 }}",
+    )
+
+    local_times = [
+        datetime(2024, 1, 1, 0, 0, tzinfo=helsinki),
+        datetime(2024, 1, 1, 1, 0, tzinfo=helsinki),
+        datetime(2024, 1, 1, 2, 0, tzinfo=helsinki),
+        datetime(2024, 1, 1, 3, 0, tzinfo=helsinki),
+    ]
+    # Raw prices: later window is cheaper, but template adds +5 c/kWh from 02:00 onwards.
+    raw_prices = [10.0, 10.0, 9.0, 9.0]
+    series = [
+        SeriesPoint(datetime=local.astimezone(timezone.utc), value=value)
+        for local, value in zip(local_times, raw_prices, strict=True)
+    ]
+
+    window = coordinator._find_cheapest_window(series, hours=2)
+    assert isinstance(window, PriceWindow)
+    assert window.start.astimezone(helsinki).hour == 0
     assert price_section["forecast"][12].value == pytest.approx(17.0)
     assert price_section["forecast"][13].value == pytest.approx(13.0)
     assert len(price_section["forecast"]) == 72

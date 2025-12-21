@@ -15,6 +15,7 @@ from homeassistant.helpers.typing import ConfigType
 from .const import (
     CONF_BASE_URL,
     CONF_EXTRA_FEES,
+    CONF_EXTRA_FEES_TEMPLATE,
     CONF_UPDATE_INTERVAL,
     DATA_COORDINATOR,
     DATA_UNSUB_LISTENER,
@@ -49,6 +50,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: NordpoolConfigEntry) -> 
         base_url=runtime_config[CONF_BASE_URL],
         update_interval=runtime_config[CONF_UPDATE_INTERVAL],
         extra_fees_cents=runtime_config[CONF_EXTRA_FEES],
+        extra_fees_template=runtime_config[CONF_EXTRA_FEES_TEMPLATE],
     )
 
     await coordinator.async_config_entry_first_refresh()
@@ -114,6 +116,7 @@ def _runtime_entry_config(entry: NordpoolConfigEntry) -> Mapping[str, Any]:
         CONF_BASE_URL: DEFAULT_BASE_URL,
         CONF_UPDATE_INTERVAL: DEFAULT_UPDATE_INTERVAL,
         CONF_EXTRA_FEES: DEFAULT_EXTRA_FEES_CENTS,
+        CONF_EXTRA_FEES_TEMPLATE: "",
     }
 
     def _normalize(data: Mapping[str, Any]) -> None:
@@ -134,6 +137,9 @@ def _runtime_entry_config(entry: NordpoolConfigEntry) -> Mapping[str, Any]:
                 result[CONF_EXTRA_FEES] = float(data[CONF_EXTRA_FEES])
             except (TypeError, ValueError):
                 result[CONF_EXTRA_FEES] = DEFAULT_EXTRA_FEES_CENTS
+
+        if CONF_EXTRA_FEES_TEMPLATE in data:
+            result[CONF_EXTRA_FEES_TEMPLATE] = str(data.get(CONF_EXTRA_FEES_TEMPLATE) or "").strip()
 
     _normalize(entry.data)
     _normalize(entry.options)

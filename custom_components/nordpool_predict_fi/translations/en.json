@@ -7,7 +7,8 @@
         "description": "Display Nordpool Predict FI predictions in Home Assistant.",
         "data": {
           "base_url": "Base URL",
-          "update_interval": "Update interval (minutes)"
+          "update_interval": "Update interval (minutes)",
+          "extra_fees_template": "Extra fees template (c/kWh)"
         }
       },
       "reconfigure": {
@@ -15,12 +16,14 @@
         "description": "Review connection details or update settings.",
         "data": {
           "base_url": "Base URL",
-          "update_interval": "Update interval (minutes)"
+          "update_interval": "Update interval (minutes)",
+          "extra_fees_template": "Extra fees template (c/kWh)"
         }
       }
     },
     "error": {
-      "invalid_url": "Base URL must be a valid URL"
+      "invalid_url": "Base URL must be a valid URL",
+      "invalid_template": "Extra fees template must be a valid Jinja template"
     }
   },
   "options": {
@@ -30,12 +33,14 @@
         "description": "Adjust polling interval or base URL.",
         "data": {
           "base_url": "Base URL",
-          "update_interval": "Update interval (minutes)"
+          "update_interval": "Update interval (minutes)",
+          "extra_fees_template": "Extra fees template (c/kWh)"
         }
       }
     },
     "error": {
-      "invalid_url": "Base URL must be a valid URL"
+      "invalid_url": "Base URL must be a valid URL",
+      "invalid_template": "Extra fees template must be a valid Jinja template"
     }
   },
   "entity": {

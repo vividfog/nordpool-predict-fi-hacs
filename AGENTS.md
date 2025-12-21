@@ -39,7 +39,7 @@
 - Price sensors:
   - `sensor.nordpool_predict_fi_price` → attributes `forecast`, `raw_source`.
   - `sensor.nordpool_predict_fi_price_now` → attributes `timestamp`, `raw_source`.
-- `sensor.nordpool_predict_fi_price_daily_average` → attributes `daily_averages`, `daily_average_span_start`, `daily_average_span_end`, `raw_source`, `extra_fees`; state is the averaged price across every hour covered by the available full Helsinki days.
+- `sensor.nordpool_predict_fi_price_daily_average` → attributes `daily_averages`, `daily_average_span_start`, `daily_average_span_end`, `raw_source`, `extra_fees` (and optionally `extra_fees_template`); state is the averaged price across every hour covered by the available full Helsinki days.
 - `sensor.nordpool_predict_fi_price_next_1h` → attributes `timestamp`, `raw_source` (average over next starting hour: T+1).
 - `sensor.nordpool_predict_fi_price_next_3h` → attributes `timestamp`, `raw_source` (average over next 3 hours: T+1 to T+3).
 - `sensor.nordpool_predict_fi_price_next_6h` → attributes `timestamp`, `raw_source` (average over next 6 hours: T+1 to T+6).
@@ -53,7 +53,7 @@
  
 
 ## Configuration & Options
-- Config flow (via `config_flow.py`) exposes base URL and update interval (1–720 minutes). Options flow mirrors the same schema.
+- Config flow (via `config_flow.py`) exposes base URL, update interval (1–720 minutes), and an optional `extra_fees_template` (Jinja) for time-dependent transfer fees. Options flow mirrors the same schema.
 - Default base URL: `https://raw.githubusercontent.com/vividfog/nordpool-predict-fi/main/deploy`.
 - Update interval stored as `timedelta` in runtime config; options override entry data.
 

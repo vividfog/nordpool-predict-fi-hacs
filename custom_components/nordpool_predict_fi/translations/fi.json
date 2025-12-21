@@ -7,7 +7,8 @@
         "description": "Näytä Nordpool Predict FI -ennusteet Home Assistantissa.",
         "data": {
           "base_url": "Osoite",
-          "update_interval": "Päivitysväli (minuuttia)"
+          "update_interval": "Päivitysväli (minuuttia)",
+          "extra_fees_template": "Lisämaksun mallipohja (c/kWh)"
         }
       },
       "reconfigure": {
@@ -15,12 +16,14 @@
         "description": "Tarkista yhteysasetukset ja päivitä asetukset.",
         "data": {
           "base_url": "Osoite",
-          "update_interval": "Päivitysväli (minuuttia)"
+          "update_interval": "Päivitysväli (minuuttia)",
+          "extra_fees_template": "Lisämaksun mallipohja (c/kWh)"
         }
       }
     },
     "error": {
-      "invalid_url": "Osoitteen tulee olla kelvollinen URL"
+      "invalid_url": "Osoitteen tulee olla kelvollinen URL",
+      "invalid_template": "Lisämaksun mallipohjan tulee olla kelvollinen Jinja-mallipohja"
     }
   },
   "options": {
@@ -30,12 +33,14 @@
         "description": "Muuta päivitysväliä tai osoitetta.",
         "data": {
           "base_url": "Osoite",
-          "update_interval": "Päivitysväli (minuuttia)"
+          "update_interval": "Päivitysväli (minuuttia)",
+          "extra_fees_template": "Lisämaksun mallipohja (c/kWh)"
         }
       }
     },
     "error": {
-      "invalid_url": "Osoitteen tulee olla kelvollinen URL"
+      "invalid_url": "Osoitteen tulee olla kelvollinen URL",
+      "invalid_template": "Lisämaksun mallipohjan tulee olla kelvollinen Jinja-mallipohja"
     }
   },
   "entity": {

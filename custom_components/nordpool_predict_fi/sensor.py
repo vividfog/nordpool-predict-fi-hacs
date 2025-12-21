@@ -25,6 +25,7 @@ from .const import (
     ATTR_FORECAST_START,
     ATTR_DAILY_AVERAGES,
     ATTR_EXTRA_FEES,
+    ATTR_EXTRA_FEES_TEMPLATE,
     ATTR_LANGUAGE,
     ATTR_NARRATION_CONTENT,
     ATTR_NARRATION_SUMMARY,
@@ -119,12 +120,16 @@ class NordpoolBaseSensor(CoordinatorEntity[NordpoolPredictCoordinator], SensorEn
         self,
         series: list[SeriesPoint],
         decimals: int | None = None,
-        offset: float = 0.0,
+        *,
+        apply_extra_fees: bool = False,
     ) -> list[Mapping[str, Any]]:
         return [
             {
                 "timestamp": point.datetime.isoformat(),
-                "value": self._rounded_value(point.value + offset, decimals),
+                "value": self._rounded_value(
+                    self._adjusted_point_value(point) if apply_extra_fees else point.value,
+                    decimals,
+                ),
             }
             for point in series
         ]
@@ -210,7 +215,7 @@ class NordpoolBaseSensor(CoordinatorEntity[NordpoolPredictCoordinator], SensorEn
                 return None, None
             points.append(point)
 
-        average = sum(p.value for p in points) / hours
+        average = sum(self._adjusted_point_value(p) for p in points) / hours
         return average, start_anchor
 
     @staticmethod
@@ -222,13 +227,28 @@ class NordpoolBaseSensor(CoordinatorEntity[NordpoolPredictCoordinator], SensorEn
             return int(rounded)
         return rounded
 
-    def _extra_fees_cents(self) -> float:
-        return getattr(self.coordinator, "extra_fees_cents", 0.0)
+    def _extra_fees_template(self) -> str | None:
+        return getattr(self.coordinator, "extra_fees_template", None)
 
-    def _apply_extra_fees(self, value: float | None) -> float | None:
-        if value is None:
-            return None
-        return value + self._extra_fees_cents()
+    def _extra_fees_cents_for(self, when: datetime, *, price_cents: float | None = None) -> float:
+        fn = getattr(self.coordinator, "extra_fees_cents_at", None)
+        if callable(fn):
+            return float(fn(when, price_cents=price_cents))
+        return float(getattr(self.coordinator, "extra_fees_cents", 0.0) or 0.0)
+
+    def _adjusted_point_value(self, point: SeriesPoint) -> float:
+        fee = self._extra_fees_cents_for(point.datetime, price_cents=point.value)
+        return point.value + fee
+
+    def _attributes_extra_fees(self, *, when: datetime | None, price_cents: float | None = None) -> dict[str, Any]:
+        template_str = self._extra_fees_template()
+        fee_value = None
+        if when is not None:
+            fee_value = self._extra_fees_cents_for(when, price_cents=price_cents)
+        attrs: dict[str, Any] = {ATTR_EXTRA_FEES: fee_value}
+        if template_str:
+            attrs[ATTR_EXTRA_FEES_TEMPLATE] = template_str
+        return attrs
 
 
 #region _price
@@ -246,8 +266,9 @@ class NordpoolPriceSensor(NordpoolBaseSensor):
     @property
     def native_value(self) -> float | None:
         current = self._series_point("current")
-        adjusted = self._apply_extra_fees(current.value if current else None)
-        return round(adjusted, 1) if adjusted is not None else None
+        if not current:
+            return None
+        return round(self._adjusted_point_value(current), 1)
 
     @property
     def extra_state_attributes(self) -> Mapping[str, Any] | None:
@@ -263,13 +284,15 @@ class NordpoolPriceSensor(NordpoolBaseSensor):
         forecast = self._build_forecast_attributes(
             data.get("forecast", []),
             decimals=1,
-            offset=self._extra_fees_cents(),
+            apply_extra_fees=True,
         )
         result = {
             ATTR_FORECAST: forecast,
             ATTR_FORECAST_START: forecast_start_iso,
             ATTR_RAW_SOURCE: self.coordinator.base_url,
-            ATTR_EXTRA_FEES: self._extra_fees_cents(),
+            **self._attributes_extra_fees(
+                when=getattr(self.coordinator, "current_time", None) or datetime.now(timezone.utc)
+            ),
         }
         return result
 
@@ -298,8 +321,9 @@ class NordpoolPriceNowSensor(NordpoolBaseSensor):
     @property
     def native_value(self) -> float | None:
         point = self._latest_point()
-        adjusted = self._apply_extra_fees(point.value if point else None)
-        return round(adjusted, 1) if adjusted is not None else None
+        if not point:
+            return None
+        return round(self._adjusted_point_value(point), 1)
 
     @property
     def extra_state_attributes(self) -> Mapping[str, Any] | None:
@@ -307,7 +331,10 @@ class NordpoolPriceNowSensor(NordpoolBaseSensor):
         return {
             ATTR_TIMESTAMP: point.datetime.isoformat() if point else None,
             ATTR_RAW_SOURCE: self.coordinator.base_url,
-            ATTR_EXTRA_FEES: self._extra_fees_cents(),
+            **self._attributes_extra_fees(
+                when=point.datetime if point else None,
+                price_cents=point.value if point else None,
+            ),
         }
 
     def _latest_point(self) -> SeriesPoint | None:
@@ -344,9 +371,8 @@ class NordpoolPriceDailyAverageSensor(NordpoolBaseSensor):
         points = self._aggregate_points()
         if not points:
             return None
-        average = sum(point.value for point in points) / len(points)
-        adjusted = self._apply_extra_fees(average)
-        return round(adjusted, 1) if adjusted is not None else None
+        average = sum(self._adjusted_point_value(point) for point in points) / len(points)
+        return round(average, 1)
 
     @property
     def extra_state_attributes(self) -> Mapping[str, Any] | None:
@@ -361,20 +387,26 @@ class NordpoolPriceDailyAverageSensor(NordpoolBaseSensor):
                 "date": item.date.isoformat(),
                 "start": item.start.isoformat(),
                 "end": item.end.isoformat(),
-                "average": round(self._apply_extra_fees(item.average), 1),
+                "average": round(
+                    (sum(self._adjusted_point_value(p) for p in item.points) / len(item.points))
+                    if item.points
+                    else 0.0,
+                    1,
+                ),
                 "hours": len(item.points),
                 "points": self._build_forecast_attributes(
                     item.points,
                     decimals=1,
-                    offset=self._extra_fees_cents(),
+                    apply_extra_fees=True,
                 ),
             }
             for item in daily_list
         ]
+        now = getattr(self.coordinator, "current_time", None) or datetime.now(timezone.utc)
         return {
             ATTR_DAILY_AVERAGES: entries,
             ATTR_RAW_SOURCE: self.coordinator.base_url,
-            ATTR_EXTRA_FEES: self._extra_fees_cents(),
+            **self._attributes_extra_fees(when=now),
             ATTR_DAILY_AVERAGE_SPAN_START: span_start.isoformat() if span_start else None,
             ATTR_DAILY_AVERAGE_SPAN_END: span_end.isoformat() if span_end else None,
         }
@@ -416,16 +448,16 @@ class NordpoolPriceNextHoursSensor(NordpoolBaseSensor):
     @property
     def native_value(self) -> float | None:
         average, _ = self._average_next_hours(self._hours)
-        adjusted = self._apply_extra_fees(average)
-        return round(adjusted, 1) if adjusted is not None else None
+        return round(average, 1) if average is not None else None
 
     @property
     def extra_state_attributes(self) -> Mapping[str, Any] | None:
         _, start_time = self._average_next_hours(self._hours)
+        now = getattr(self.coordinator, "current_time", None) or datetime.now(timezone.utc)
         return {
             ATTR_TIMESTAMP: start_time.isoformat() if start_time else None,
             ATTR_RAW_SOURCE: self.coordinator.base_url,
-            ATTR_EXTRA_FEES: self._extra_fees_cents(),
+            **self._attributes_extra_fees(when=now),
         }
 
 
@@ -444,12 +476,13 @@ class _NordpoolCheapestWindowBaseSensor(NordpoolBaseSensor):
         attributes: dict[str, Any] = {
             ATTR_RAW_SOURCE: self.coordinator.base_url,
             ATTR_WINDOW_DURATION: self._hours,
-            ATTR_EXTRA_FEES: self._extra_fees_cents(),
             ATTR_WINDOW_LOOKAHEAD_HOURS: self._coerce_int(meta.get("lookahead_hours")),
             ATTR_WINDOW_LOOKAHEAD_LIMIT: self._coerce_datetime_iso(meta.get("lookahead_limit")),
             ATTR_CHEAPEST_WINDOW_START_HOUR: self._coerce_int(meta.get("start_hour")),
             ATTR_CHEAPEST_WINDOW_END_HOUR: self._coerce_int(meta.get("end_hour")),
         }
+        now = getattr(self.coordinator, "current_time", None) or datetime.now(timezone.utc)
+        attributes.update(self._attributes_extra_fees(when=now))
         if window:
             start_local = window.start.astimezone(helsinki_tz)
             end_local = window.end.astimezone(helsinki_tz)
@@ -458,13 +491,18 @@ class _NordpoolCheapestWindowBaseSensor(NordpoolBaseSensor):
             attributes[ATTR_WINDOW_POINTS] = self._build_forecast_attributes(
                 window.points,
                 decimals=1,
-                offset=self._extra_fees_cents(),
+                apply_extra_fees=True,
             )
         else:
             attributes[ATTR_WINDOW_START] = None
             attributes[ATTR_WINDOW_END] = None
             attributes[ATTR_WINDOW_POINTS] = []
         return attributes
+
+    def _window_adjusted_average(self, window: PriceWindow) -> float:
+        if not window.points:
+            return window.average
+        return sum(self._adjusted_point_value(point) for point in window.points) / len(window.points)
 
     def _cheapest_windows_meta(self) -> Mapping[str, Any]:
         section = self._price_section()
@@ -506,8 +544,7 @@ class NordpoolCheapestWindowSensor(_NordpoolCheapestWindowBaseSensor):
         window = self._window()
         if not window:
             return None
-        adjusted = self._apply_extra_fees(window.average)
-        return round(adjusted, 1)
+        return round(self._window_adjusted_average(window), 1)
 
     @property
     def extra_state_attributes(self) -> Mapping[str, Any] | None:
@@ -570,7 +607,6 @@ class _NordpoolCheapestCustomWindowBaseSensor(NordpoolBaseSensor):
         attributes: dict[str, Any] = {
             ATTR_RAW_SOURCE: self.coordinator.base_url,
             ATTR_WINDOW_DURATION: hours,
-            ATTR_EXTRA_FEES: self._extra_fees_cents(),
             ATTR_CUSTOM_WINDOW_HOURS: hours,
             ATTR_CUSTOM_WINDOW_START_HOUR: start_hour,
             ATTR_CUSTOM_WINDOW_END_HOUR: end_hour,
@@ -581,6 +617,8 @@ class _NordpoolCheapestCustomWindowBaseSensor(NordpoolBaseSensor):
             ATTR_WINDOW_LOOKAHEAD_HOURS: self._coerce_int(shared_meta.get("lookahead_hours")),
             ATTR_WINDOW_LOOKAHEAD_LIMIT: self._coerce_datetime_iso(shared_meta.get("lookahead_limit")),
         }
+        now = getattr(self.coordinator, "current_time", None) or datetime.now(timezone.utc)
+        attributes.update(self._attributes_extra_fees(when=now))
         if window:
             start_local = window.start.astimezone(helsinki_tz)
             end_local = window.end.astimezone(helsinki_tz)
@@ -589,7 +627,7 @@ class _NordpoolCheapestCustomWindowBaseSensor(NordpoolBaseSensor):
             attributes[ATTR_WINDOW_POINTS] = self._build_forecast_attributes(
                 window.points,
                 decimals=1,
-                offset=self._extra_fees_cents(),
+                apply_extra_fees=True,
             )
         else:
             attributes[ATTR_WINDOW_START] = None
@@ -637,8 +675,10 @@ class NordpoolCheapestCustomWindowSensor(_NordpoolCheapestCustomWindowBaseSensor
         window = self._window()
         if not window:
             return None
-        adjusted = self._apply_extra_fees(window.average)
-        return round(adjusted, 1)
+        if not window.points:
+            return None
+        average = sum(self._adjusted_point_value(point) for point in window.points) / len(window.points)
+        return round(average, 1)
 
     @property
     def extra_state_attributes(self) -> Mapping[str, Any] | None:

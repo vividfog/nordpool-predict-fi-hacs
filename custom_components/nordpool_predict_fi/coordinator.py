@@ -12,13 +12,16 @@ from urllib.parse import urlencode
 from aiohttp import ClientError, ClientResponseError, ContentTypeError
 import async_timeout
 from homeassistant.core import HomeAssistant
+from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
+from homeassistant.helpers.template import Template
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from .const import (
     CHEAPEST_WINDOW_HOURS,
     CONF_EXTRA_FEES,
+    CONF_EXTRA_FEES_TEMPLATE,
     CONF_UPDATE_INTERVAL,
     CUSTOM_WINDOW_KEY,
     DEFAULT_CHEAPEST_WINDOW_LOOKAHEAD_HOURS,
@@ -88,6 +91,7 @@ class NordpoolPredictCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         base_url: str,
         update_interval,
         extra_fees_cents: float | None = None,
+        extra_fees_template: str | None = None,
     ) -> None:
         super().__init__(
             hass,
@@ -103,6 +107,9 @@ class NordpoolPredictCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             if extra_fees_cents is not None
             else DEFAULT_EXTRA_FEES_CENTS
         )
+        self._extra_fees_template_str: str | None = None
+        self._extra_fees_template: Template | None = None
+        self.set_extra_fees_template(extra_fees_template)
         self._cheapest_window_lookahead_hours = DEFAULT_CHEAPEST_WINDOW_LOOKAHEAD_HOURS
         self._cheapest_window_start_hour = DEFAULT_CHEAPEST_WINDOW_START_HOUR
         self._cheapest_window_end_hour = DEFAULT_CHEAPEST_WINDOW_END_HOUR
@@ -119,6 +126,10 @@ class NordpoolPredictCoordinator(DataUpdateCoordinator[dict[str, Any]]):
     def extra_fees_cents(self) -> float:
         return self._extra_fees_cents
 
+    @property
+    def extra_fees_template(self) -> str | None:
+        return self._extra_fees_template_str
+
     def set_extra_fees_cents(self, value: float) -> None:
         try:
             normalized = float(value)
@@ -128,6 +139,70 @@ class NordpoolPredictCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             return
         self._extra_fees_cents = normalized
         self.async_update_listeners()
+
+    def set_extra_fees_template(self, value: str | None) -> None:
+        cleaned = str(value or "").strip()
+        if not cleaned:
+            if self._extra_fees_template_str is None and self._extra_fees_template is None:
+                return
+            self._extra_fees_template_str = None
+            self._extra_fees_template = None
+            self._rebuild_cheapest_windows_from_cached_data()
+            self._rebuild_custom_window_from_cached_data()
+            self._rebuild_daily_averages_from_cached_data()
+            return
+
+        if cleaned == self._extra_fees_template_str:
+            return
+
+        try:
+            template_obj = cv.template(cleaned)
+        except Exception as err:
+            _LOGGER.warning("Invalid extra fees template ignored: %s", err)
+            self._extra_fees_template_str = None
+            self._extra_fees_template = None
+        else:
+            template_obj.hass = self.hass
+            self._extra_fees_template_str = cleaned
+            self._extra_fees_template = template_obj
+
+        self._rebuild_cheapest_windows_from_cached_data()
+        self._rebuild_custom_window_from_cached_data()
+        self._rebuild_daily_averages_from_cached_data()
+
+    def extra_fees_cents_at(self, when: datetime, *, price_cents: float | None = None) -> float:
+        """Return extra fees (c/kWh) for the given timestamp.
+
+        If a template is configured, it is rendered in Helsinki local time.
+        Template variables:
+          - time: datetime (Helsinki local)
+          - utc_time: datetime (UTC)
+          - hour: int (0-23, Helsinki local)
+          - price: float (base price in c/kWh) or None
+        """
+        template_obj = self._extra_fees_template
+        if template_obj is None:
+            return self._extra_fees_cents
+
+        helsinki_tz = self._get_helsinki_timezone()
+        local_time = when.astimezone(helsinki_tz)
+        context = {
+            "time": local_time,
+            "utc_time": when.astimezone(timezone.utc),
+            "hour": int(local_time.hour),
+            "price": price_cents,
+        }
+        try:
+            rendered = template_obj.async_render(**context)
+            return float(rendered)
+        except Exception as err:
+            _LOGGER.error(
+                "Failed to render extra fees template for when=%s, price_cents=%s: %s",
+                when,
+                price_cents,
+                err,
+            )
+            return self._extra_fees_cents
 
     @property
     def cheapest_window_lookahead_hours(self) -> int:
@@ -359,6 +434,7 @@ class NordpoolPredictCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 "base_url": self._base_url,
                 CONF_UPDATE_INTERVAL: self.update_interval,
                 CONF_EXTRA_FEES: self._extra_fees_cents,
+                CONF_EXTRA_FEES_TEMPLATE: self._extra_fees_template_str,
             },
         }
         
@@ -568,6 +644,25 @@ class NordpoolPredictCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             now = self._current_time()
         helsinki_tz = self._get_helsinki_timezone()
         price_section[CUSTOM_WINDOW_KEY] = self._build_custom_window_entry(series, now, helsinki_tz)
+        self.async_update_listeners()
+
+    def _rebuild_daily_averages_from_cached_data(self) -> None:
+        data = self.data
+        if not isinstance(data, dict):
+            self.async_update_listeners()
+            return
+        price_section = data.get("price")
+        if not isinstance(price_section, dict):
+            self.async_update_listeners()
+            return
+        series = price_section.get("forecast")
+        if not isinstance(series, list):
+            price_section["daily_averages"] = []
+            self.async_update_listeners()
+            return
+        series_points = [point for point in series if isinstance(point, SeriesPoint)]
+        helsinki_tz = self._get_helsinki_timezone()
+        price_section["daily_averages"] = self._calculate_daily_averages(series_points, helsinki_tz)
         self.async_update_listeners()
 
     def _rebuild_cheapest_windows_from_cached_data(self) -> None:
@@ -810,6 +905,7 @@ class NordpoolPredictCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             return None
 
         best_window: PriceWindow | None = None
+        best_effective_average: float | None = None
         for index in range(len(series) - hours + 1):
             window_points = series[index : index + hours]
             if not self._is_hourly_sequence(window_points):
@@ -824,13 +920,21 @@ class NordpoolPredictCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 continue
             if max_end and end_time > max_end:
                 continue
-            average = sum(point.value for point in window_points) / hours
-            if best_window is None or average < best_window.average:
+            raw_average = sum(point.value for point in window_points) / hours
+            effective_average = (
+                sum(
+                    point.value + self.extra_fees_cents_at(point.datetime, price_cents=point.value)
+                    for point in window_points
+                )
+                / hours
+            )
+            if best_effective_average is None or effective_average < best_effective_average:
+                best_effective_average = effective_average
                 best_window = PriceWindow(
                     duration_hours=hours,
                     start=start_time,
                     end=end_time,
-                    average=average,
+                    average=raw_average,
                     points=window_points,
                 )
         return best_window
