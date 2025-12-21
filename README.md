@@ -109,6 +109,10 @@ During setup (or later via *Configure*) you can tweak:
 - **Update interval** – polling frequency in minutes (1–720, default 30).
 - **Extra fees template (optional)** – Jinja template that returns a numeric extra fee in `c/kWh` for a given hour. When set, it overrides the constant `number.nordpool_predict_fi_extra_fees` value.
   - Available variables: `time` (Helsinki local datetime), `utc_time` (UTC datetime), `hour` (0–23, Helsinki local), `price` (base price in `c/kWh`).
+  - Example (night/day transfer fee, c/kWh):
+    ```jinja
+    {% if time.hour >= 22 or time.hour < 7 %}5.59{% else %}7.36{% endif %}
+    ```
 
 The host needs tzdata with the `Europe/Helsinki` zone. If that package is missing the coordinator raises an error in the Home Assistant logs.
 

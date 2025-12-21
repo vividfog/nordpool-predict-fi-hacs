@@ -2,6 +2,10 @@
 
 All notable changes to this project are documented here. This project follows the Common Changelog style (common-changelog.org).
 
+## 2025-12-21
+### Added
+- Config entry option `extra_fees_template` (Jinja) for time-dependent transfer fees; affects price sensors, averages, and cheapest windows.
+
 ## 2025-10-26
 ### Fixed
 - Daily average price sensor now keeps full Helsinki days even when DST produces 23 or 25 hourly samples.
