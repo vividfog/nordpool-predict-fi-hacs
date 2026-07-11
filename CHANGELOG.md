@@ -2,6 +2,11 @@
 
 All notable changes to this project are documented here. This project follows the Common Changelog style (common-changelog.org).
 
+## 2026-07-11
+### Fixed
+- Price cards, legends, and the hourly calendar now use lime green for the cheapest price band and lime for the next band.
+- Example cards keep generated wind-power series visible with a minimal non-zero stroke.
+
 ## 2025-10-26
 ### Fixed
 - Daily average price sensor now keeps full Helsinki days even when DST produces 23 or 25 hourly samples.

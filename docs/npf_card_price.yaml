@@ -57,10 +57,10 @@ series:
     opacity: 1
     color_threshold:
       - value: 3
-        color: lime
+        color: limegreen
         opacity: 1
       - value: 6
-        color: limegreen
+        color: lime
         opacity: 1
       - value: 10
         color: gold
@@ -145,7 +145,7 @@ series:
     color: skyblue
     opacity: 0.2
     extend_to: now
-    stroke_width: 0
+    stroke_width: 0.1
     curve: stepline
     data_generator: |
       const data = entity.attributes.windpower_forecast || [];
@@ -167,10 +167,10 @@ series:
       header_color_threshold: true
     color_threshold:
       - value: 3
-        color: lime
+        color: limegreen
         opacity: 1
       - value: 6
-        color: limegreen
+        color: lime
         opacity: 1
       - value: 10
         color: gold
@@ -191,10 +191,10 @@ series:
     color: dimgray
     color_threshold:
       - value: 3
-        color: lime
+        color: limegreen
         opacity: 1
       - value: 6
-        color: limegreen
+        color: lime
         opacity: 1
       - value: 10
         color: gold
@@ -219,10 +219,10 @@ series:
     color: dimgray
     color_threshold:
       - value: 3
-        color: lime
+        color: limegreen
         opacity: 1
       - value: 6
-        color: limegreen
+        color: lime
         opacity: 1
       - value: 10
         color: gold

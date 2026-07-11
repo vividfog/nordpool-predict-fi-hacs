@@ -100,7 +100,7 @@ series:
     yaxis_id: wind
     extend_to: now
     curve: stepline
-    stroke_width: 0
+    stroke_width: 0.1
     float_precision: 1
     color: dodgerblue
     opacity: 0.16
@@ -145,10 +145,10 @@ series:
     color: dimgray
     color_threshold:
       - value: 5
-        color: lime
+        color: limegreen
         opacity: 1
       - value: 10
-        color: limegreen
+        color: lime
         opacity: 1
       - value: 15
         color: gold
@@ -174,10 +174,10 @@ series:
     name: Seuraavat 6h
     color_threshold:
       - value: 5
-        color: lime
+        color: limegreen
         opacity: 1
       - value: 10
-        color: limegreen
+        color: lime
         opacity: 1
       - value: 15
         color: gold
@@ -202,10 +202,10 @@ series:
     name: Halvin 6h
     color_threshold:
       - value: 5
-        color: lime
+        color: limegreen
         opacity: 1
       - value: 10
-        color: limegreen
+        color: lime
         opacity: 1
       - value: 15
         color: gold
